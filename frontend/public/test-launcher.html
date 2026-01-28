@@ -105,20 +105,26 @@
     <label for="roomCode">Room Code:</label>
     <input type="text" id="roomCode" placeholder="Enter room code (e.g., AWFGL5)" maxlength="6" style="text-transform: uppercase;">
 
-    <button onclick="openAllTabs()">🚀 Open 4 Bot Tabs</button>
+    <div class="info" style="margin-bottom: 20px; background: rgba(212,169,76,0.2); border: 1px solid #d4a94c;">
+      <strong>⚠️ Popup blocker?</strong> Click each button below individually:
+    </div>
 
     <div class="player-buttons">
-      <button class="player-btn" onclick="openTab('Bot_Jesse')">Open Bot_Jesse</button>
-      <button class="player-btn" onclick="openTab('Bot_Billy')">Open Bot_Billy</button>
-      <button class="player-btn" onclick="openTab('Bot_Rose')">Open Bot_Rose</button>
-      <button class="player-btn" onclick="openTab('Bot_Lucky')">Open Bot_Lucky</button>
+      <button class="player-btn" onclick="openTab('Bot_Jesse')">1️⃣ Open Bot_Jesse</button>
+      <button class="player-btn" onclick="openTab('Bot_Billy')">2️⃣ Open Bot_Billy</button>
+      <button class="player-btn" onclick="openTab('Bot_Rose')">3️⃣ Open Bot_Rose</button>
+      <button class="player-btn" onclick="openTab('Bot_Lucky')">4️⃣ Open Bot_Lucky</button>
+    </div>
+
+    <div style="margin-top: 15px;">
+      <button onclick="openAllTabs()" style="background: #666;">🚀 Try Open All (may be blocked)</button>
     </div>
 
     <div class="info">
       <strong>Instructions:</strong><br>
       1. Create a room in the main app<br>
       2. Enter the room code above<br>
-      3. Click "Open 4 Bot Tabs" to open all bots<br>
+      3. Click each bot button (1-4) to open tabs<br>
       4. Each tab will auto-join with the bot name<br>
       5. Click "Ready" in each tab, then "Start Game"!
     </div>

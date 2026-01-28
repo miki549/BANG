@@ -104,6 +104,23 @@ onMounted(async () => {
   await gameStore.connectToServer()
   window.addEventListener('lobby-message', handleLobbyMessage)
   window.addEventListener('room-message', handleRoomMessage)
+  
+  // Handle URL parameters for auto-join (for testing)
+  const urlParams = new URLSearchParams(window.location.search)
+  const autoJoin = urlParams.get('autoJoin')
+  const roomCode = urlParams.get('roomCode')
+  const autoPlayerName = urlParams.get('playerName')
+  
+  if (autoJoin === 'true' && roomCode && autoPlayerName) {
+    playerName.value = autoPlayerName
+    joinRoomId.value = roomCode.toUpperCase()
+    
+    // Wait a moment for connection to establish, then auto-join
+    setTimeout(() => {
+      console.log(`Auto-joining room ${roomCode} as ${autoPlayerName}`)
+      gameStore.joinRoom(joinRoomId.value, playerName.value)
+    }, 1000)
+  }
 })
 
 onUnmounted(() => {

@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --western-sand: #E8D4A8;
+  --western-brown: #8B4513;
+  --western-dark: #2C1810;
+  --western-gold: #DAA520;
+  --western-leather: #964B00;
+  --western-red: #8B0000;
+}
+
+body {
+  font-family: 'Cinzel', serif;
+  background: linear-gradient(135deg, #2C1810 0%, #4A2C1A 50%, #2C1810 100%);
+  min-height: 100vh;
+  color: #E8D4A8;
+}
+
+.font-western {
+  font-family: 'Rye', serif;
+}
+
+@layer components {
+  .btn-western {
+    @apply px-6 py-3 bg-gradient-to-b from-western-gold to-western-leather 
+           text-western-dark font-bold rounded-lg shadow-lg
+           hover:from-yellow-400 hover:to-western-gold
+           active:scale-95 transition-all duration-200
+           border-2 border-western-dark;
+  }
+
+  .btn-danger {
+    @apply px-6 py-3 bg-gradient-to-b from-red-600 to-red-800
+           text-white font-bold rounded-lg shadow-lg
+           hover:from-red-500 hover:to-red-700
+           active:scale-95 transition-all duration-200
+           border-2 border-red-900;
+  }
+
+  .card-game {
+    @apply relative w-24 h-36 rounded-lg shadow-xl cursor-pointer
+           transition-all duration-300 transform-gpu;
+    background: linear-gradient(145deg, #E8D4A8, #D4C4A0);
+    border: 3px solid #8B4513;
+  }
+
+  .card-game:hover {
+    @apply -translate-y-5 scale-110 z-50;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .card-back {
+    background: linear-gradient(145deg, #8B4513, #654321);
+    background-image: 
+      radial-gradient(circle at 30% 30%, rgba(218, 165, 32, 0.3) 0%, transparent 50%),
+      radial-gradient(circle at 70% 70%, rgba(218, 165, 32, 0.2) 0%, transparent 50%);
+  }
+
+  .player-seat {
+    @apply absolute flex flex-col items-center gap-2 p-3 rounded-xl
+           bg-gradient-to-b from-western-dark/80 to-black/60
+           border-2 border-western-gold/30 backdrop-blur-sm;
+  }
+
+  .player-seat.current-turn {
+    @apply border-western-gold shadow-lg;
+    box-shadow: 0 0 30px rgba(218, 165, 32, 0.5);
+    animation: pulse 2s infinite;
+  }
+
+  .health-bar {
+    @apply flex gap-1;
+  }
+
+  .health-bullet {
+    @apply w-4 h-4 rounded-full transition-all duration-300;
+  }
+
+  .health-bullet.full {
+    @apply bg-gradient-to-b from-yellow-400 to-yellow-600;
+    box-shadow: 0 0 8px rgba(234, 179, 8, 0.6);
+  }
+
+  .health-bullet.empty {
+    @apply bg-gray-700 border border-gray-600;
+  }
+
+  .input-western {
+    @apply w-full px-4 py-3 rounded-lg bg-western-dark/50 
+           border-2 border-western-gold/30 text-western-sand
+           focus:border-western-gold focus:outline-none
+           placeholder-western-sand/50;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(218, 165, 32, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(218, 165, 32, 0.8);
+  }
+}
+
+.game-table {
+  background: radial-gradient(ellipse at center, #2d5016 0%, #1a3009 50%, #0d1a04 100%);
+  border: 8px solid #4a2c1a;
+  box-shadow: 
+    inset 0 0 100px rgba(0, 0, 0, 0.5),
+    0 0 50px rgba(0, 0, 0, 0.8);
+}
+
+.deck-pile {
+  @apply relative;
+}
+
+.deck-pile::before {
+  content: '';
+  @apply absolute inset-0 rounded-lg;
+  background: linear-gradient(145deg, rgba(139, 69, 19, 0.8), rgba(101, 67, 33, 0.8));
+  transform: translateY(3px) translateX(3px);
+  z-index: -1;
+}
+
+.deck-pile::after {
+  content: '';
+  @apply absolute inset-0 rounded-lg;
+  background: linear-gradient(145deg, rgba(139, 69, 19, 0.6), rgba(101, 67, 33, 0.6));
+  transform: translateY(6px) translateX(6px);
+  z-index: -2;
+}

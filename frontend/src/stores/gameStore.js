@@ -114,6 +114,8 @@ export const useGameStore = defineStore('game', () => {
 
   // Message handlers
   function handleLobbyMessage(message) {
+    console.log('handleLobbyMessage:', message.type, message)
+    
     switch (message.type) {
       case 'ROOM_CREATED':
       case 'ROOM_JOINED':
@@ -121,10 +123,12 @@ export const useGameStore = defineStore('game', () => {
         playerId.value = message.playerId
         room.value = message.payload
         isHost.value = message.payload?.hostId === message.playerId
+        console.log('Room state updated:', { roomId: roomId.value, playerId: playerId.value, isHost: isHost.value })
         break
       case 'ROOM_UPDATE':
         room.value = message.payload
         isHost.value = room.value?.hostId === playerId.value
+        console.log('Room updated, players:', room.value?.players?.length)
         break
       case 'ROOM_LEFT':
         roomId.value = null
@@ -132,10 +136,12 @@ export const useGameStore = defineStore('game', () => {
         isHost.value = false
         break
       case 'GAME_STARTED':
+        console.log('Game started, requesting state...')
         requestGameState()
         break
       case 'ERROR':
         error.value = message.payload
+        console.error('Lobby error:', message.payload)
         break
     }
   }

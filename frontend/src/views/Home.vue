@@ -96,6 +96,11 @@ const canJoin = computed(() => playerName.value.trim().length >= 2 && joinRoomId
 const error = computed(() => gameStore.error)
 
 onMounted(async () => {
+  // Check if we have stored session data
+  const storedRoomId = sessionStorage.getItem('roomId')
+  const storedPlayerId = sessionStorage.getItem('playerId')
+  const storedPlayerName = sessionStorage.getItem('playerName')
+  
   await gameStore.connectToServer()
   window.addEventListener('lobby-message', handleLobbyMessage)
   window.addEventListener('room-message', handleRoomMessage)
@@ -108,9 +113,15 @@ onUnmounted(() => {
 
 function handleLobbyMessage(event) {
   const message = event.detail
+  console.log('Home received lobby message:', message.type)
   gameStore.handleLobbyMessage(message)
 
   if (message.type === 'ROOM_CREATED' || message.type === 'ROOM_JOINED') {
+    // Store session data for refresh recovery
+    sessionStorage.setItem('roomId', message.roomId)
+    sessionStorage.setItem('playerId', message.playerId)
+    sessionStorage.setItem('playerName', playerName.value)
+    
     subscribeToRoom(message.roomId, message.playerId)
     router.push(`/lobby/${message.roomId}`)
   }

@@ -57,6 +57,9 @@ public class LobbyController {
         String roomId = message.getRoomId();
         String playerName = message.getPlayerName() != null ? message.getPlayerName() : "Player";
 
+        log.info("Join room request: roomId={}, playerName={}, sessionId={}, principalName={}", 
+                roomId, playerName, sessionId, principalName);
+
         try {
             Room room = roomService.joinRoom(roomId, sessionId, playerName);
             String playerId = roomService.getPlayerIdForSession(sessionId);
@@ -69,11 +72,14 @@ public class LobbyController {
                     .payload(room)
                     .build();
 
+            log.info("Sending ROOM_JOINED to principal: {}", principalName);
             messagingTemplate.convertAndSendToUser(principalName, "/queue/lobby", response);
             broadcastRoomUpdate(room);
             
-            log.info("Player {} joined room {}", playerName, roomId);
+            log.info("Player {} (id={}) joined room {}, total players: {}", 
+                    playerName, playerId, roomId, room.getPlayers().size());
         } catch (Exception e) {
+            log.error("Failed to join room: {}", e.getMessage());
             sendError(headerAccessor, "Failed to join room: " + e.getMessage());
         }
     }

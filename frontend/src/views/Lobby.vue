@@ -128,6 +128,9 @@
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../stores/gameStore'
+import { useWebSocket } from '../composables/useWebSocket'
+
+const { subscribeToRoom } = useWebSocket()
 
 const route = useRoute()
 const router = useRouter()
@@ -151,9 +154,33 @@ const canStart = computed(() => {
          players.value.every(p => p.ready)
 })
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('room-message', handleRoomMessage)
   window.addEventListener('lobby-message', handleLobbyMessage)
+  
+  // Handle page refresh - check if we have room state
+  if (!room.value || !gameStore.playerId) {
+    // Try to recover from session storage
+    const storedRoomId = sessionStorage.getItem('roomId')
+    const storedPlayerId = sessionStorage.getItem('playerId')
+    const storedPlayerName = sessionStorage.getItem('playerName')
+    
+    if (storedRoomId && storedPlayerName && storedRoomId === route.params.roomId) {
+      console.log('Attempting to rejoin room after refresh...')
+      // Need to reconnect WebSocket and rejoin
+      await gameStore.connectToServer()
+      
+      // Wait a moment for connection to establish
+      setTimeout(() => {
+        gameStore.joinRoom(storedRoomId, storedPlayerName)
+      }, 500)
+    } else {
+      // No valid session, redirect to home
+      console.log('No valid session found, redirecting to home')
+      sessionStorage.clear()
+      router.push('/')
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -178,7 +205,15 @@ function handleRoomMessage(event) {
 
 function handleLobbyMessage(event) {
   const message = event.detail
+  console.log('Lobby received lobby message:', message.type)
   gameStore.handleLobbyMessage(message)
+  
+  // Handle rejoin after page refresh
+  if (message.type === 'ROOM_JOINED') {
+    sessionStorage.setItem('roomId', message.roomId)
+    sessionStorage.setItem('playerId', message.playerId)
+    subscribeToRoom(message.roomId, message.playerId)
+  }
 }
 
 function toggleReady() {
@@ -192,6 +227,7 @@ function startGame() {
 }
 
 function leaveRoom() {
+  sessionStorage.clear()
   gameStore.leaveRoom()
   router.push('/')
 }

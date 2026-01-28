@@ -19,18 +19,15 @@
       </div>
 
       <!-- Card Body -->
-      <div class="flex-1 flex items-center justify-center p-2"
+      <div class="flex-1 flex items-center justify-center p-1 overflow-hidden"
            :class="getCardBackgroundClass()">
-        <!-- Card Symbol/Icon -->
-        <div class="text-center">
-          <div class="text-3xl mb-1">{{ getCardIcon() }}</div>
-          <div v-if="card.type?.includes('SCHOFIELD') || card.type?.includes('REMINGTON') || 
-                      card.type?.includes('WINCHESTER') || card.type?.includes('REV_CARABINE') ||
-                      card.type?.includes('VOLCANIC')"
-               class="text-xs text-western-dark font-bold">
-            Range: {{ getWeaponRange() }}
-          </div>
-        </div>
+        <!-- Card Image -->
+        <img 
+          :src="getCardImage()" 
+          :alt="getCardName()"
+          class="max-w-full max-h-full object-contain"
+          @error="onImageError"
+        />
       </div>
 
       <!-- Card Footer - Suit & Value -->
@@ -102,32 +99,39 @@ function getCardName() {
   return names[props.card.type] || props.card.type
 }
 
-function getCardIcon() {
-  const icons = {
-    'BANG': '💥',
-    'MISSED': '🎯',
-    'BEER': '🍺',
-    'SALOON': '🏠',
-    'STAGECOACH': '🐎',
-    'WELLS_FARGO': '📦',
-    'PANIC': '😱',
-    'CAT_BALOU': '🐱',
-    'DUEL': '⚔️',
-    'GATLING': '🔫',
-    'INDIANS': '🪶',
-    'GENERAL_STORE': '🏪',
-    'BARREL': '🛢️',
-    'MUSTANG': '🐴',
-    'SCOPE': '🔭',
-    'JAIL': '⛓️',
-    'DYNAMITE': '🧨',
-    'VOLCANIC': '🌋',
-    'SCHOFIELD': '🔫',
-    'REMINGTON': '🔫',
-    'REV_CARABINE': '🔫',
-    'WINCHESTER': '🔫'
+function getCardImage() {
+  const imageMap = {
+    'BANG': 'bang.png',
+    'MISSED': 'missed.png',
+    'BEER': 'beer.png',
+    'SALOON': 'saloon.png',
+    'STAGECOACH': 'stagecoach.png',
+    'WELLS_FARGO': 'wellsfargo.png',
+    'PANIC': 'panic.png',
+    'CAT_BALOU': 'catbalou.png',
+    'DUEL': 'duel.png',
+    'GATLING': 'gatling.png',
+    'INDIANS': 'indians.png',
+    'GENERAL_STORE': 'generalstore.png',
+    'BARREL': 'barrel.png',
+    'MUSTANG': 'mustang.png',
+    'SCOPE': 'scope.png',
+    'JAIL': 'jail.png',
+    'DYNAMITE': 'dinamite.png',
+    'VOLCANIC': 'volcanic.png',
+    'SCHOFIELD': 'schofield.png',
+    'REMINGTON': 'remington.png',
+    'REV_CARABINE': 'carabine.png',
+    'WINCHESTER': 'winchester.png'
   }
-  return icons[props.card.type] || '🃏'
+  const filename = imageMap[props.card.type] || 'bang.png'
+  return `/images/cards/${filename}`
+}
+
+function onImageError(event) {
+  // Fallback to a placeholder if image fails to load
+  console.warn('Failed to load card image:', props.card.type)
+  event.target.style.display = 'none'
 }
 
 function getCardBackgroundClass() {

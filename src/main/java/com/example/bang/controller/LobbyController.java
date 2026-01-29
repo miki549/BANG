@@ -84,6 +84,48 @@ public class LobbyController {
         }
     }
 
+    @MessageMapping("/room/reconnect")
+    public void reconnect(@Payload RoomMessage message, SimpMessageHeaderAccessor headerAccessor) {
+        String sessionId = headerAccessor.getSessionId();
+        String principalName = headerAccessor.getUser() != null ? headerAccessor.getUser().getName() : sessionId;
+        String roomId = message.getRoomId();
+        String playerId = message.getPlayerId();
+
+        log.info("Reconnect request: roomId={}, playerId={}, sessionId={}", roomId, playerId, sessionId);
+
+        try {
+            Room room = roomService.reconnect(roomId, playerId, sessionId);
+            
+            // Send ROOM_JOINED to the reconnected user
+            RoomMessage response = RoomMessage.builder()
+                    .type("ROOM_JOINED")
+                    .roomId(room.getId())
+                    .roomName(room.getName())
+                    .playerId(playerId)
+                    .payload(room)
+                    .build();
+
+            messagingTemplate.convertAndSendToUser(principalName, "/queue/lobby", response);
+            
+            if (room.isGameStarted()) {
+                // Update session in GameService
+                gameService.updatePlayerSession(roomId, playerId, sessionId);
+                
+                RoomMessage startMessage = RoomMessage.builder()
+                        .type("GAME_STARTED")
+                        .roomId(roomId)
+                        .build();
+                // Send GAME_STARTED specifically to this user so they know to request state
+                messagingTemplate.convertAndSendToUser(principalName, "/queue/lobby", startMessage);
+            }
+            
+            log.info("Player {} reconnected to room {}", playerId, roomId);
+        } catch (Exception e) {
+            log.error("Failed to reconnect: {}", e.getMessage());
+            sendError(headerAccessor, "Failed to reconnect: " + e.getMessage());
+        }
+    }
+
     @MessageMapping("/room/leave")
     public void leaveRoom(SimpMessageHeaderAccessor headerAccessor) {
         String sessionId = headerAccessor.getSessionId();

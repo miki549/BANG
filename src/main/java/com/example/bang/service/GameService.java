@@ -89,6 +89,16 @@ public class GameService {
         return games.get(roomId);
     }
 
+    public void updatePlayerSession(String roomId, String playerId, String newSessionId) {
+        GameState state = games.get(roomId);
+        if (state != null) {
+            Player player = state.getPlayerById(playerId);
+            if (player != null) {
+                player.setSessionId(newSessionId);
+            }
+        }
+    }
+
     public void drawCards(String roomId, String playerId) {
         GameState state = games.get(roomId);
         if (state == null) return;

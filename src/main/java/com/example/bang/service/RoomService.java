@@ -98,6 +98,24 @@ public class RoomService {
         return room;
     }
 
+    public void handleDisconnect(String sessionId) {
+        String roomId = sessionToRoom.get(sessionId);
+        if (roomId == null) return;
+
+        String playerId = sessionToPlayer.get(sessionId);
+        
+        Room room = rooms.get(roomId);
+        if (room != null && playerId != null) {
+            PlayerInfo player = room.getPlayer(playerId);
+            if (player != null) {
+                player.setSessionId(null);
+            }
+        }
+
+        sessionToRoom.remove(sessionId);
+        sessionToPlayer.remove(sessionId);
+    }
+
     public Optional<Room> getRoom(String roomId) {
         return Optional.ofNullable(rooms.get(roomId));
     }
@@ -138,6 +156,34 @@ public class RoomService {
         if (room != null) {
             room.setGameStarted(true);
         }
+    }
+
+    public Room reconnect(String roomId, String playerId, String newSessionId) {
+        Room room = rooms.get(roomId);
+        if (room == null) {
+            throw new IllegalArgumentException("Room not found: " + roomId);
+        }
+
+        PlayerInfo player = room.getPlayer(playerId);
+        if (player == null) {
+            throw new IllegalArgumentException("Player not found in room");
+        }
+
+        // Remove old session mappings
+        String oldSessionId = player.getSessionId();
+        if (oldSessionId != null) {
+            sessionToRoom.remove(oldSessionId);
+            sessionToPlayer.remove(oldSessionId);
+        }
+
+        // Update player session
+        player.setSessionId(newSessionId);
+
+        // Update mappings
+        sessionToRoom.put(newSessionId, roomId);
+        sessionToPlayer.put(newSessionId, playerId);
+
+        return room;
     }
 
     private String generateRoomId() {

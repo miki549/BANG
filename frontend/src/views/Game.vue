@@ -217,15 +217,22 @@ const requiredCardType = computed(() => {
   return 'response'
 })
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('game-message', handleGameMessage)
   window.addEventListener('game-event', handleGameEvent)
-  console.log('Game.vue mounted, requesting game state...')
-  gameStore.requestGameState()
+  console.log('Game.vue mounted, connecting...')
   
-  // Retry after a short delay if no state received
+  await gameStore.connectToServer()
+  
+  // If we have state from reconnect, request game state
+  if (gameStore.roomId && gameStore.playerId) {
+    console.log('Connected and session restored, requesting game state...')
+    gameStore.requestGameState()
+  }
+
+  // Retry logic
   setTimeout(() => {
-    if (!gameState.value) {
+    if (!gameState.value && gameStore.connected) {
       console.log('No game state received, retrying...')
       gameStore.requestGameState()
     }

@@ -4,6 +4,7 @@ import com.example.bang.dto.RoomMessage;
 import com.example.bang.model.Room;
 import com.example.bang.service.RoomService;
 import lombok.RequiredArgsConstructor;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -35,7 +36,16 @@ public class WebSocketEventListener {
         // Get room ID before leaving
         String roomId = roomService.getRoomIdForSession(sessionId);
         
-        // Handle player leaving room on disconnect
+        if (roomId != null) {
+            Optional<Room> roomOpt = roomService.getRoom(roomId);
+            if (roomOpt.isPresent() && roomOpt.get().isGameStarted()) {
+                log.info("Player disconnected from active game in room {}. Keeping player in room.", roomId);
+                roomService.handleDisconnect(sessionId);
+                return;
+            }
+        }
+
+        // Handle player leaving room on disconnect (only if game not started)
         Room room = roomService.leaveRoom(sessionId);
         
         // Broadcast room update if room still exists

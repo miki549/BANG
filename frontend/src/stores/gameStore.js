@@ -43,6 +43,19 @@ export const useGameStore = defineStore('game', () => {
   // Actions
   async function connectToServer() {
     await connect()
+    const storedRoomId = sessionStorage.getItem('bang_roomId')
+    const storedPlayerId = sessionStorage.getItem('bang_playerId')
+    
+    if (storedRoomId && storedPlayerId) {
+      console.log('Found stored session, attempting reconnect...')
+      roomId.value = storedRoomId
+      playerId.value = storedPlayerId
+      send('/app/room/reconnect', {
+        type: 'JOIN', // Reconnect is a type of join
+        roomId: storedRoomId,
+        playerId: storedPlayerId
+      })
+    }
   }
 
   function createRoom(name, playerNameValue) {
@@ -69,6 +82,8 @@ export const useGameStore = defineStore('game', () => {
     room.value = null
     gameState.value = null
     isHost.value = false
+    sessionStorage.removeItem('bang_roomId')
+    sessionStorage.removeItem('bang_playerId')
   }
 
   function setReady(ready) {
@@ -123,6 +138,11 @@ export const useGameStore = defineStore('game', () => {
         playerId.value = message.playerId
         room.value = message.payload
         isHost.value = message.payload?.hostId === message.playerId
+        
+        // Persist session
+        sessionStorage.setItem('bang_roomId', message.roomId)
+        sessionStorage.setItem('bang_playerId', message.playerId)
+        
         console.log('Room state updated:', { roomId: roomId.value, playerId: playerId.value, isHost: isHost.value })
         break
       case 'ROOM_UPDATE':

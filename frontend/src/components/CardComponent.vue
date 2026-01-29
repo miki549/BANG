@@ -10,32 +10,21 @@
     @click="!disabled && $emit('click', card)"
   >
     <!-- Card Face -->
-    <div class="absolute inset-0 rounded-lg overflow-hidden flex flex-col">
-      <!-- Card Header -->
-      <div class="bg-western-brown/80 px-2 py-1 text-center border-b border-western-dark">
-        <span class="text-xs font-bold text-western-sand truncate">
-          {{ getCardName() }}
-        </span>
-      </div>
-
-      <!-- Card Body -->
-      <div class="flex-1 flex items-center justify-center p-1 overflow-hidden"
-           :class="getCardBackgroundClass()">
-        <!-- Card Image -->
-        <img 
-          :src="getCardImage()" 
-          :alt="getCardName()"
-          class="max-w-full max-h-full object-contain"
-          @error="onImageError"
-        />
-      </div>
-
-      <!-- Card Footer - Suit & Value -->
-      <div class="bg-western-dark/60 px-2 py-1 flex justify-between items-center">
+    <div class="absolute inset-0 rounded-lg overflow-hidden">
+      <!-- Card Image (full card) -->
+      <img 
+        :src="getCardImage()" 
+        :alt="getCardName()"
+        class="w-full h-full object-cover"
+        @error="onImageError"
+      />
+      
+      <!-- Suit & Value Badge (bottom right) -->
+      <div class="absolute bottom-1 right-1 bg-white/90 rounded px-1.5 py-0.5 flex items-center gap-1 shadow-md">
         <span class="text-sm font-bold" :class="getSuitColor()">
           {{ getSuitSymbol() }}
         </span>
-        <span class="text-xs text-western-sand">
+        <span class="text-xs font-semibold text-gray-800">
           {{ card.value }}
         </span>
       </div>

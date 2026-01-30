@@ -15,6 +15,7 @@ import java.util.List;
 public class Player {
     private String id;
     private String sessionId;
+    private String principalName;
     private String name;
     private Role role;
     private CharacterType character;

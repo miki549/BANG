@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 public class PlayerInfo {
     private String id;
     private String sessionId;
+    private String principalName;
     private String name;
     private boolean ready;
     private boolean isHost;

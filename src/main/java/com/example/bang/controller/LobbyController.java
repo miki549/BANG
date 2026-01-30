@@ -31,7 +31,7 @@ public class LobbyController {
         String playerName = message.getPlayerName() != null ? message.getPlayerName() : "Player";
 
         try {
-            Room room = roomService.createRoom(roomName, sessionId, playerName);
+            Room room = roomService.createRoom(roomName, sessionId, principalName, playerName);
             
             RoomMessage response = RoomMessage.builder()
                     .type("ROOM_CREATED")
@@ -61,7 +61,7 @@ public class LobbyController {
                 roomId, playerName, sessionId, principalName);
 
         try {
-            Room room = roomService.joinRoom(roomId, sessionId, playerName);
+            Room room = roomService.joinRoom(roomId, sessionId, principalName, playerName);
             String playerId = roomService.getPlayerIdForSession(sessionId);
 
             RoomMessage response = RoomMessage.builder()
@@ -94,7 +94,7 @@ public class LobbyController {
         log.info("Reconnect request: roomId={}, playerId={}, sessionId={}", roomId, playerId, sessionId);
 
         try {
-            Room room = roomService.reconnect(roomId, playerId, sessionId);
+            Room room = roomService.reconnect(roomId, playerId, sessionId, principalName);
             
             // Send ROOM_JOINED to the reconnected user
             RoomMessage response = RoomMessage.builder()
@@ -109,7 +109,7 @@ public class LobbyController {
             
             if (room.isGameStarted()) {
                 // Update session in GameService
-                gameService.updatePlayerSession(roomId, playerId, sessionId);
+                gameService.updatePlayerSession(roomId, playerId, sessionId, principalName);
                 
                 RoomMessage startMessage = RoomMessage.builder()
                         .type("GAME_STARTED")
@@ -205,14 +205,14 @@ public class LobbyController {
 
         try {
             String roomId = roomService.getRoomIdForSession(sessionId);
-            String kickedSessionId = roomService.kickPlayer(sessionId, targetPlayerId);
+            String kickedPrincipalName = roomService.kickPlayer(sessionId, targetPlayerId);
 
             // Notify the kicked player
-            if (kickedSessionId != null) {
+            if (kickedPrincipalName != null) {
                 RoomMessage kickMessage = RoomMessage.builder()
                         .type("ROOM_KICKED")
                         .build();
-                messagingTemplate.convertAndSendToUser(kickedSessionId, "/queue/lobby", kickMessage);
+                messagingTemplate.convertAndSendToUser(kickedPrincipalName, "/queue/lobby", kickMessage);
             }
 
             // Update remaining players

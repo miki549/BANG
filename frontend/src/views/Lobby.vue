@@ -169,11 +169,10 @@ onMounted(async () => {
   // Handle page refresh - check if we have room state
   if (!room.value || !gameStore.playerId) {
     // Try to recover from session storage
-    const storedRoomId = sessionStorage.getItem('roomId')
-    const storedPlayerId = sessionStorage.getItem('playerId')
-    const storedPlayerName = sessionStorage.getItem('playerName')
+    const storedRoomId = sessionStorage.getItem('bang_roomId')
+    const storedPlayerName = sessionStorage.getItem('bang_playerName')
     
-    if (storedRoomId && storedPlayerName && storedRoomId === route.params.roomId) {
+    if (storedRoomId && storedRoomId === route.params.roomId) {
       console.log('Attempting to rejoin room after refresh...')
       // Need to reconnect WebSocket and rejoin
       await gameStore.connectToServer()
@@ -181,14 +180,14 @@ onMounted(async () => {
       // Wait a moment for connection to establish
       setTimeout(() => {
         // Only try to join if we haven't successfully reconnected (room is null)
-        if (!gameStore.room) {
+        // And we have a name to rejoin with
+        if (!gameStore.room && storedPlayerName) {
           gameStore.joinRoom(storedRoomId, storedPlayerName)
         }
       }, 500)
     } else {
-      // No valid session, redirect to home
+      // No valid session (e.g. kicked), redirect to home
       console.log('No valid session found, redirecting to home')
-      sessionStorage.clear()
       router.push('/')
     }
   }
@@ -225,8 +224,6 @@ function handleLobbyMessage(event) {
 
   // Handle rejoin after page refresh
   if (message.type === 'ROOM_JOINED') {
-    sessionStorage.setItem('roomId', message.roomId)
-    sessionStorage.setItem('playerId', message.playerId)
     subscribeToRoom(message.roomId, message.playerId)
   }
 }

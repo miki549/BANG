@@ -45,6 +45,7 @@ public class GameService {
             Player player = Player.builder()
                     .id(info.getId())
                     .sessionId(info.getSessionId())
+                    .principalName(info.getPrincipalName())
                     .name(info.getName())
                     .role(role)
                     .character(character)
@@ -89,12 +90,13 @@ public class GameService {
         return games.get(roomId);
     }
 
-    public void updatePlayerSession(String roomId, String playerId, String newSessionId) {
+    public void updatePlayerSession(String roomId, String playerId, String newSessionId, String newPrincipalName) {
         GameState state = games.get(roomId);
         if (state != null) {
             Player player = state.getPlayerById(playerId);
             if (player != null) {
                 player.setSessionId(newSessionId);
+                player.setPrincipalName(newPrincipalName);
             }
         }
     }
@@ -729,10 +731,19 @@ public class GameService {
         // Also send personalized view to each player
         for (Player player : state.getPlayers()) {
             GameStateView view = GameStateView.fromGameState(state, player.getId());
-            messagingTemplate.convertAndSend(
-                    "/topic/room/" + roomId + "/player/" + player.getId(),
-                    view
-            );
+            
+            if (player.getPrincipalName() != null) {
+                messagingTemplate.convertAndSendToUser(
+                        player.getPrincipalName(),
+                        "/queue/game",
+                        view
+                );
+            } else {
+                messagingTemplate.convertAndSend(
+                        "/topic/room/" + roomId + "/player/" + player.getId(),
+                        view
+                );
+            }
         }
     }
 

@@ -16,13 +16,14 @@ public class RoomService {
     private final Map<String, String> sessionToRoom = new ConcurrentHashMap<>();
     private final Map<String, String> sessionToPlayer = new ConcurrentHashMap<>();
 
-    public Room createRoom(String roomName, String hostSessionId, String hostName) {
+    public Room createRoom(String roomName, String hostSessionId, String hostPrincipalName, String hostName) {
         String roomId = generateRoomId();
         String playerId = UUID.randomUUID().toString();
 
         PlayerInfo host = PlayerInfo.builder()
                 .id(playerId)
                 .sessionId(hostSessionId)
+                .principalName(hostPrincipalName)
                 .name(hostName)
                 .ready(true)
                 .isHost(true)
@@ -42,7 +43,7 @@ public class RoomService {
         return room;
     }
 
-    public Room joinRoom(String roomId, String sessionId, String playerName) {
+    public Room joinRoom(String roomId, String sessionId, String principalName, String playerName) {
         Room room = rooms.get(roomId);
         if (room == null) {
             throw new IllegalArgumentException("Room not found: " + roomId);
@@ -58,6 +59,7 @@ public class RoomService {
         PlayerInfo player = PlayerInfo.builder()
                 .id(playerId)
                 .sessionId(sessionId)
+                .principalName(principalName)
                 .name(playerName)
                 .ready(false)
                 .isHost(false)
@@ -180,6 +182,7 @@ public class RoomService {
         }
 
         String targetSessionId = targetPlayer.getSessionId();
+        String targetPrincipalName = targetPlayer.getPrincipalName();
 
         room.removePlayer(targetPlayerId);
 
@@ -188,10 +191,11 @@ public class RoomService {
             sessionToPlayer.remove(targetSessionId);
         }
 
-        return targetSessionId;
+        // Return principal name if available, otherwise session ID as fallback
+        return targetPrincipalName != null ? targetPrincipalName : targetSessionId;
     }
 
-    public Room reconnect(String roomId, String playerId, String newSessionId) {
+    public Room reconnect(String roomId, String playerId, String newSessionId, String newPrincipalName) {
         Room room = rooms.get(roomId);
         if (room == null) {
             throw new IllegalArgumentException("Room not found: " + roomId);
@@ -211,6 +215,7 @@ public class RoomService {
 
         // Update player session
         player.setSessionId(newSessionId);
+        player.setPrincipalName(newPrincipalName);
 
         // Update mappings
         sessionToRoom.put(newSessionId, roomId);

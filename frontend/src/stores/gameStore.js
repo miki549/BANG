@@ -45,11 +45,15 @@ export const useGameStore = defineStore('game', () => {
     await connect()
     const storedRoomId = sessionStorage.getItem('bang_roomId')
     const storedPlayerId = sessionStorage.getItem('bang_playerId')
+    const storedPlayerName = sessionStorage.getItem('bang_playerName')
     
     if (storedRoomId && storedPlayerId) {
       console.log('Found stored session, attempting reconnect...')
       roomId.value = storedRoomId
       playerId.value = storedPlayerId
+      if (storedPlayerName) {
+        playerName.value = storedPlayerName
+      }
       send('/app/room/reconnect', {
         type: 'JOIN', // Reconnect is a type of join
         roomId: storedRoomId,
@@ -175,6 +179,7 @@ export const useGameStore = defineStore('game', () => {
         isHost.value = false
         sessionStorage.removeItem('bang_roomId')
         sessionStorage.removeItem('bang_playerId')
+        sessionStorage.removeItem('bang_playerName')
         error.value = "You have been kicked from the room."
         break
       case 'ERROR':

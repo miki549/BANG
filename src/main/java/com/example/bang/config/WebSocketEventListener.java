@@ -36,28 +36,11 @@ public class WebSocketEventListener {
         // Get room ID before leaving
         String roomId = roomService.getRoomIdForSession(sessionId);
         
+        // Always keep player in room on disconnect to allow reconnect/refresh
+        // Ghost players can be kicked by the host
         if (roomId != null) {
-            Optional<Room> roomOpt = roomService.getRoom(roomId);
-            if (roomOpt.isPresent() && roomOpt.get().isGameStarted()) {
-                log.info("Player disconnected from active game in room {}. Keeping player in room.", roomId);
-                roomService.handleDisconnect(sessionId);
-                return;
-            }
-        }
-
-        // Handle player leaving room on disconnect (only if game not started)
-        Room room = roomService.leaveRoom(sessionId);
-        
-        // Broadcast room update if room still exists
-        if (room != null && roomId != null) {
-            RoomMessage update = RoomMessage.builder()
-                    .type("ROOM_UPDATE")
-                    .roomId(room.getId())
-                    .roomName(room.getName())
-                    .payload(room)
-                    .build();
-            messagingTemplate.convertAndSend("/topic/room/" + roomId, update);
-            log.info("Player disconnected from room {}, new host: {}", roomId, room.getHostId());
+            log.info("Player disconnected from room {}. Marking session as inactive.", roomId);
+            roomService.handleDisconnect(sessionId);
         }
         
         log.info("WebSocket disconnected: {}", sessionId);

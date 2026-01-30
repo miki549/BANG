@@ -31,7 +31,7 @@
         <div
           v-for="player in players"
           :key="player.id"
-          class="flex flex-col items-center p-4 rounded-lg transition-all"
+          class="flex flex-col items-center p-4 rounded-lg transition-all group relative"
           :class="[
             player.isHost ? 'bg-western-gold/20 border border-western-gold' : 'bg-western-dark/30 border border-western-sand/20',
             player.ready ? 'ring-2 ring-green-500' : ''
@@ -50,13 +50,21 @@
           
           <div class="flex items-center gap-2 mt-1">
             <span v-if="player.isHost" class="text-xs text-western-gold">HOST</span>
-            <span 
-              v-if="player.ready" 
+            <span
+              v-if="player.ready"
               class="text-xs text-green-400"
             >
               READY
             </span>
           </div>
+          
+          <button
+            v-if="isHost && player.id !== currentPlayer?.id"
+            @click="kickPlayer(player.id)"
+            class="mt-2 text-xs text-red-400 hover:text-red-300 underline opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            Kick
+          </button>
         </div>
 
         <!-- Empty Slots -->
@@ -149,7 +157,7 @@ const currentPlayer = computed(() => {
 const isCurrentPlayerReady = computed(() => currentPlayer.value?.ready || false)
 
 const canStart = computed(() => {
-  return players.value.length >= 4 && 
+  return players.value.length >= 4 &&
          players.value.length <= 7 && 
          players.value.every(p => p.ready)
 })
@@ -172,7 +180,10 @@ onMounted(async () => {
       
       // Wait a moment for connection to establish
       setTimeout(() => {
-        gameStore.joinRoom(storedRoomId, storedPlayerName)
+        // Only try to join if we haven't successfully reconnected (room is null)
+        if (!gameStore.room) {
+          gameStore.joinRoom(storedRoomId, storedPlayerName)
+        }
       }, 500)
     } else {
       // No valid session, redirect to home
@@ -208,11 +219,21 @@ function handleLobbyMessage(event) {
   console.log('Lobby received lobby message:', message.type)
   gameStore.handleLobbyMessage(message)
   
+  if (message.type === 'ROOM_KICKED') {
+    router.push('/')
+  }
+
   // Handle rejoin after page refresh
   if (message.type === 'ROOM_JOINED') {
     sessionStorage.setItem('roomId', message.roomId)
     sessionStorage.setItem('playerId', message.playerId)
     subscribeToRoom(message.roomId, message.playerId)
+  }
+}
+
+function kickPlayer(playerId) {
+  if (confirm('Are you sure you want to kick this player?')) {
+    gameStore.kickPlayer(playerId)
   }
 }
 

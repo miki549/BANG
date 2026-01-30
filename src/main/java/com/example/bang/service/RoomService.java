@@ -158,6 +158,39 @@ public class RoomService {
         }
     }
 
+    public String kickPlayer(String hostSessionId, String targetPlayerId) {
+        String roomId = sessionToRoom.get(hostSessionId);
+        if (roomId == null) throw new IllegalArgumentException("Host not in a room");
+
+        Room room = rooms.get(roomId);
+        if (room == null) throw new IllegalArgumentException("Room not found");
+
+        String hostId = sessionToPlayer.get(hostSessionId);
+        if (hostId == null || !hostId.equals(room.getHostId())) {
+            throw new IllegalStateException("Only host can kick players");
+        }
+
+        if (hostId.equals(targetPlayerId)) {
+            throw new IllegalArgumentException("Host cannot kick themselves");
+        }
+
+        PlayerInfo targetPlayer = room.getPlayer(targetPlayerId);
+        if (targetPlayer == null) {
+            throw new IllegalArgumentException("Player not found in room");
+        }
+
+        String targetSessionId = targetPlayer.getSessionId();
+
+        room.removePlayer(targetPlayerId);
+
+        if (targetSessionId != null) {
+            sessionToRoom.remove(targetSessionId);
+            sessionToPlayer.remove(targetSessionId);
+        }
+
+        return targetSessionId;
+    }
+
     public Room reconnect(String roomId, String playerId, String newSessionId) {
         Room room = rooms.get(roomId);
         if (room == null) {

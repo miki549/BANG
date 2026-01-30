@@ -84,6 +84,7 @@ export const useGameStore = defineStore('game', () => {
     isHost.value = false
     sessionStorage.removeItem('bang_roomId')
     sessionStorage.removeItem('bang_playerId')
+    sessionStorage.removeItem('bang_playerName')
   }
 
   function setReady(ready) {
@@ -116,6 +117,12 @@ export const useGameStore = defineStore('game', () => {
     send('/app/game/pass', {})
   }
 
+  function kickPlayer(targetPlayerId) {
+    send('/app/room/kick', {
+      playerId: targetPlayerId
+    })
+  }
+
   function discardCard(cardId) {
     send('/app/game/discard', { cardId })
   }
@@ -142,6 +149,9 @@ export const useGameStore = defineStore('game', () => {
         // Persist session
         sessionStorage.setItem('bang_roomId', message.roomId)
         sessionStorage.setItem('bang_playerId', message.playerId)
+        if (playerName.value) {
+          sessionStorage.setItem('bang_playerName', playerName.value)
+        }
         
         console.log('Room state updated:', { roomId: roomId.value, playerId: playerId.value, isHost: isHost.value })
         break
@@ -158,6 +168,14 @@ export const useGameStore = defineStore('game', () => {
       case 'GAME_STARTED':
         console.log('Game started, requesting state...')
         requestGameState()
+        break
+      case 'ROOM_KICKED':
+        roomId.value = null
+        room.value = null
+        isHost.value = false
+        sessionStorage.removeItem('bang_roomId')
+        sessionStorage.removeItem('bang_playerId')
+        error.value = "You have been kicked from the room."
         break
       case 'ERROR':
         error.value = message.payload
@@ -255,6 +273,7 @@ export const useGameStore = defineStore('game', () => {
     drawCards,
     playCard,
     passTurn,
+    kickPlayer,
     discardCard,
     respondToAction,
     handleLobbyMessage,

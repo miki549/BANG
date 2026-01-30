@@ -198,6 +198,36 @@ public class LobbyController {
         log.info("Game started in room {}", roomId);
     }
 
+    @MessageMapping("/room/kick")
+    public void kickPlayer(@Payload RoomMessage message, SimpMessageHeaderAccessor headerAccessor) {
+        String sessionId = headerAccessor.getSessionId();
+        String targetPlayerId = message.getPlayerId(); // reusing playerId field for target
+
+        try {
+            String roomId = roomService.getRoomIdForSession(sessionId);
+            String kickedSessionId = roomService.kickPlayer(sessionId, targetPlayerId);
+
+            // Notify the kicked player
+            if (kickedSessionId != null) {
+                RoomMessage kickMessage = RoomMessage.builder()
+                        .type("ROOM_KICKED")
+                        .build();
+                messagingTemplate.convertAndSendToUser(kickedSessionId, "/queue/lobby", kickMessage);
+            }
+
+            // Update remaining players
+            if (roomId != null) {
+                roomService.getRoom(roomId).ifPresent(this::broadcastRoomUpdate);
+            }
+
+            log.info("Host {} kicked player {}", sessionId, targetPlayerId);
+
+        } catch (Exception e) {
+            log.error("Failed to kick player: {}", e.getMessage());
+            sendError(headerAccessor, "Failed to kick player: " + e.getMessage());
+        }
+    }
+
     private void broadcastRoomUpdate(Room room) {
         RoomMessage update = RoomMessage.builder()
                 .type("ROOM_UPDATE")

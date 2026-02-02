@@ -58,18 +58,6 @@ body {
       radial-gradient(circle at 70% 70%, rgba(218, 165, 32, 0.2) 0%, transparent 50%);
   }
 
-  .player-seat {
-    @apply absolute flex flex-col items-center gap-2 p-3 rounded-xl
-           bg-gradient-to-b from-western-dark/80 to-black/60
-           border-2 border-western-gold/30 backdrop-blur-sm;
-  }
-
-  .player-seat.current-turn {
-    @apply border-western-gold shadow-lg;
-    box-shadow: 0 0 30px rgba(218, 165, 32, 0.5);
-    animation: pulse 2s infinite;
-  }
-
   .health-bar {
     @apply flex gap-1;
   }
@@ -88,10 +76,110 @@ body {
   }
 
   .input-western {
-    @apply w-full px-4 py-3 rounded-lg bg-western-dark/50 
+    @apply w-full px-4 py-3 rounded-lg bg-western-dark/50
            border-2 border-western-gold/30 text-western-sand
            focus:border-western-gold focus:outline-none
            placeholder-western-sand/50;
+  }
+
+  /* New Player Board Styles */
+  .player-board {
+    @apply absolute flex items-stretch gap-2 p-2 rounded-lg
+           transition-all duration-300 transform-gpu
+           border-2
+           shadow-lg;
+    background-color: #3e2723;
+    border-color: #8d6e63;
+    background-image:
+      repeating-linear-gradient(90deg, transparent 0, transparent 1px, rgba(0,0,0,0.1) 1px, rgba(0,0,0,0.1) 4px),
+      linear-gradient(to bottom, #5d4037, #3e2723);
+    box-shadow:
+      inset 0 0 20px rgba(0,0,0,0.8),
+      0 10px 20px rgba(0,0,0,0.5);
+  }
+
+  .player-board.current-turn {
+    @apply border-yellow-500;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.6), inset 0 0 20px rgba(0,0,0,0.8);
+    transform: scale(1.02);
+    z-index: 10;
+  }
+
+  .player-board.targetable {
+    @apply cursor-pointer ring-2 ring-red-500;
+  }
+  .player-board.targetable:hover {
+    @apply ring-4 ring-red-400 scale-105 z-20;
+  }
+  
+  .player-board.dead {
+    @apply opacity-60 grayscale;
+  }
+
+  .board-section-left {
+    @apply w-16 flex-shrink-0 relative flex flex-col items-center justify-center;
+  }
+
+  .character-portrait {
+    @apply w-14 h-14 rounded-md border-2 border-western-gold bg-black/40
+           flex items-center justify-center text-western-sand overflow-hidden relative;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+  }
+
+  .role-badge {
+    @apply absolute -top-2 -left-2 w-7 h-7 rounded-full border-2 border-western-dark
+           flex items-center justify-center font-bold text-xs shadow-md z-10;
+  }
+  .role-badge.sheriff { @apply bg-yellow-500 text-white; }
+  .role-badge.deputy { @apply bg-blue-500 text-white; }
+  .role-badge.outlaw { @apply bg-red-600 text-white; }
+  .role-badge.renegade { @apply bg-purple-600 text-white; }
+  .role-badge.hidden-role { @apply bg-gray-600 text-gray-300; }
+
+  .board-section-middle {
+    @apply flex-1 flex flex-col justify-between py-0.5 min-w-0;
+  }
+
+  .player-name {
+    @apply font-western text-base text-western-sand truncate leading-tight;
+    text-shadow: 1px 1px 2px black;
+  }
+
+  .health-container {
+    @apply flex flex-wrap gap-0.5 my-1;
+  }
+
+  .bullet-slot {
+    @apply w-2.5 h-4 rounded-sm border border-gray-800 transition-colors;
+    background: #222;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5);
+  }
+  .bullet-slot.full {
+    background: linear-gradient(to right, #DAA520, #B8860B);
+    border-color: #8B4513;
+  }
+
+  .hand-indicator {
+    @apply flex items-center gap-1 text-xs text-western-sand/70;
+  }
+
+  .board-section-right {
+    @apply w-24 flex-shrink-0 flex flex-col gap-1;
+  }
+
+  .equipment-slot {
+    @apply flex-1 rounded bg-black/30 border border-western-gold/20
+           flex items-center justify-center text-xs overflow-hidden relative;
+  }
+
+  .card-mini {
+    @apply w-full h-full flex items-center justify-center text-[10px] text-center p-0.5 leading-none font-bold;
+  }
+  .card-mini.blue-card {
+    @apply bg-blue-900/40 text-blue-200 border-l-2 border-blue-500/50;
+  }
+  .card-mini.weapon-card {
+    @apply bg-red-900/40 text-red-200 border-l-2 border-red-500/50;
   }
 }
 

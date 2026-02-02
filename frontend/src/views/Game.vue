@@ -38,7 +38,7 @@
         </div>
       </div>
 
-      <!-- Other Players (Circular Layout) -->
+      <!-- Other Players (Elliptical Layout) -->
       <PlayerSeat
         v-for="(player, index) in otherPlayers"
         :key="player.id"
@@ -68,79 +68,124 @@
       </div>
 
       <!-- Current Player Area (Bottom) -->
-      <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-western-dark via-western-dark/80 to-transparent pt-16 pb-4">
-        <!-- Player Info -->
-        <div class="flex justify-center mb-4">
-          <div class="flex items-center gap-6 bg-western-dark/60 rounded-xl px-6 py-3 border border-western-gold/30">
-            <!-- Character Info -->
-            <div class="text-center">
-              <div class="text-western-gold font-semibold">{{ currentPlayer?.characterName }}</div>
-              <div class="text-western-sand/60 text-xs max-w-xs truncate">
-                {{ currentPlayer?.characterAbility }}
+      <div class="absolute bottom-0 left-0 right-0 p-2 flex flex-col items-center justify-end z-30
+                  bg-gradient-to-t from-black/90 via-black/70 to-transparent pt-12">
+        
+        <div class="flex items-end gap-6 w-full max-w-7xl justify-center">
+            <!-- My Player Board -->
+            <div class="player-board relative transform-none w-[340px] h-32 flex-shrink-0 mb-4"
+                 :class="{ 'current-turn': isMyTurn }">
+                <!-- Left: Character & Role -->
+                <div class="w-20 h-full border-r border-amber-800/50 bg-stone-800 relative flex-shrink-0">
+                  <!-- Character -->
+                  <div class="absolute inset-1 bg-stone-700 rounded border border-stone-600 overflow-hidden">
+                       <img
+                         v-if="currentPlayer?.characterName"
+                         :src="getCharacterImage(currentPlayer.characterName)"
+                         :alt="currentPlayer.characterName"
+                         class="w-full h-full object-cover"
+                       />
+                       <div v-else class="w-full h-full flex items-center justify-center text-3xl">🤠</div>
+                  </div>
+                  
+                  <!-- Role Overlay (Small) or separate? -->
+                  <!-- In the main dashboard, maybe we want the role separate like in PlayerSeat? -->
+                  <!-- But the dashboard structure here is different. Let's try to fit it. -->
+                  <!-- Actually, let's use a separate slot for Role if space allows, or overlay. -->
+                  <div class="absolute -bottom-2 -right-2 w-10 h-14 rounded border border-stone-600 overflow-hidden shadow-md z-20">
+                      <img
+                         v-if="currentPlayer?.role"
+                         :src="getRoleImage(currentPlayer.role)"
+                         :alt="currentPlayer.role"
+                         class="w-full h-full object-cover"
+                      />
+                  </div>
+                </div>
+
+                <!-- Middle: Stats -->
+                <div class="board-section-middle">
+                  <div class="flex flex-col">
+                      <div class="player-name text-xl">{{ currentPlayer?.name || 'You' }}</div>
+                      <div class="text-xs text-western-gold/80 truncate">{{ currentPlayer?.characterName }}</div>
+                      <div class="text-[10px] text-western-sand/50 truncate max-w-[140px]" :title="currentPlayer?.characterAbility">
+                        {{ currentPlayer?.characterAbility }}
+                      </div>
+                  </div>
+
+                  <div class="health-container mt-2">
+                     <div v-for="i in (currentPlayer?.maxHealth || 4)" :key="i"
+                          class="bullet-slot w-3 h-5"
+                          :class="{ 'full': i <= (currentPlayer?.health || 0) }">
+                     </div>
+                  </div>
+                </div>
+
+                <!-- Right: Equipment -->
+                <div class="board-section-right w-24">
+                   <!-- Weapon -->
+                   <div class="equipment-slot h-10" :title="currentPlayer?.weapon ? currentPlayer.weapon.name : 'Colt .45'">
+                      <div v-if="currentPlayer?.weapon" class="card-mini weapon-card text-xs">{{ currentPlayer.weapon.type?.replace('_', ' ') }}</div>
+                      <div v-else class="card-mini text-gray-500 opacity-50 text-xl">🔫</div>
+                   </div>
+                   
+                   <!-- Blue Cards -->
+                   <div class="flex-1 grid grid-cols-2 gap-1 overflow-hidden content-start">
+                      <div v-for="card in currentPlayer?.cardsInPlay" :key="card.id"
+                           class="equipment-slot h-8"
+                           :title="card.type">
+                         <div class="card-mini blue-card text-xs">{{ getCardMiniIcon(card.type) }}</div>
+                      </div>
+                   </div>
+                </div>
+            </div>
+
+            <!-- Hand Cards (Fan Layout) -->
+            <div class="flex-1 flex justify-center items-end -mb-4 overflow-visible pb-12 perspective-1000">
+              <div class="relative flex justify-center items-end w-full h-40">
+                <div v-for="(card, index) in myHand"
+                     :key="card.id"
+                     class="absolute transition-all duration-300 transform-gpu origin-bottom-center"
+                     :style="getFanStyle(index, myHand.length, selectedCard?.id === card.id)"
+                     @mouseenter="hoveredCardIndex = index"
+                     @mouseleave="hoveredCardIndex = -1"
+                     @click="handleCardClick(card)">
+                  <CardComponent
+                    :card="card"
+                    :selected="selectedCard?.id === card.id"
+                    :playable="isCardPlayable(card)"
+                    :style="{ transform: 'none' }"
+                    class="shadow-2xl !transition-none"
+                  />
+                </div>
               </div>
             </div>
+            
+            <!-- Actions -->
+            <div class="flex flex-col gap-2 mb-8 min-w-[120px]">
+              <button
+                v-if="isMyTurn && phase === 'DRAW_PHASE'"
+                @click="drawCards"
+                class="btn-western w-full"
+              >
+                Draw
+              </button>
 
-            <!-- Divider -->
-            <div class="w-px h-10 bg-western-gold/30"></div>
+              <button
+                v-if="isMyTurn && phase === 'PLAY_PHASE'"
+                @click="passTurn"
+                class="btn-western w-full"
+              >
+                End Turn
+              </button>
 
-            <!-- Health -->
-            <div class="flex items-center gap-2">
-              <span class="text-western-sand/60 text-sm">HP:</span>
-              <HealthBar :current="currentPlayer?.health || 0" :max="currentPlayer?.maxHealth || 4" />
+              <button
+                v-if="selectedCard && needsTarget"
+                @click="cancelSelection"
+                class="btn-danger w-full"
+              >
+                Cancel
+              </button>
             </div>
-
-            <!-- Divider -->
-            <div class="w-px h-10 bg-western-gold/30"></div>
-
-            <!-- Role (only visible to self) -->
-            <div class="text-center">
-              <div class="text-xs text-western-sand/60">Role</div>
-              <div class="font-semibold" :class="getRoleColor(currentPlayer?.role)">
-                {{ currentPlayer?.role || '???' }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Hand -->
-        <div class="flex justify-center">
-          <div class="flex items-end justify-center gap-1 px-4 overflow-x-auto max-w-full">
-            <CardComponent
-              v-for="card in myHand"
-              :key="card.id"
-              :card="card"
-              :selected="selectedCard?.id === card.id"
-              :playable="isCardPlayable(card)"
-              @click="handleCardClick(card)"
-            />
-          </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="flex justify-center gap-4 mt-4">
-          <button
-            v-if="isMyTurn && phase === 'DRAW_PHASE'"
-            @click="drawCards"
-            class="btn-western"
-          >
-            Draw Cards
-          </button>
-
-          <button
-            v-if="isMyTurn && phase === 'PLAY_PHASE'"
-            @click="passTurn"
-            class="btn-western"
-          >
-            End Turn
-          </button>
-
-          <button
-            v-if="selectedCard && needsTarget"
-            @click="cancelSelection"
-            class="btn-danger"
-          >
-            Cancel
-          </button>
         </div>
       </div>
     </main>
@@ -175,6 +220,7 @@ const gameStore = useGameStore()
 
 const selectedCard = ref(null)
 const selectedTarget = ref(null)
+const hoveredCardIndex = ref(-1)
 
 const roomId = computed(() => route.params.roomId)
 const gameState = computed(() => gameStore.gameState)
@@ -253,19 +299,46 @@ function handleGameEvent(event) {
 }
 
 function getPlayerPosition(index, total) {
-  // Distribute players in a semi-circle at the top
-  const angleSpread = 160 // degrees
-  const startAngle = -90 - (angleSpread / 2)
-  const angleStep = angleSpread / (total + 1)
-  const angle = startAngle + (angleStep * (index + 1))
+  // Elliptical distribution for up to 7 players (6 opponents)
+  // We want to distribute them from Left-Bottom (160deg) to Right-Bottom (380deg)
+  // going clockwise through Top (270deg).
   
-  const radiusX = 38 // % from center
-  const radiusY = 35 // % from center
+  const xRadius = 38; // Reduced to prevent overflow
+  const yRadius = 35; // Slightly reduced
+  const centerX = 50;
+  const centerY = 40; // Moved up slightly to give more room for player dashboard
+
+  const startAngle = 160;
+  const endAngle = 380;
+  const range = endAngle - startAngle;
   
-  const x = 50 + radiusX * Math.cos(angle * Math.PI / 180)
-  const y = 45 + radiusY * Math.sin(angle * Math.PI / 180)
+  let angle;
+  if (total <= 1) {
+    angle = 270; // Top
+  } else {
+    // Distribute evenly along the arc
+    const step = range / (total - 1);
+    angle = startAngle + (step * index);
+  }
   
-  return { x, y }
+  // Convert to radians
+  const rad = angle * (Math.PI / 180);
+  
+  const x = centerX + xRadius * Math.cos(rad);
+  const y = centerY + yRadius * Math.sin(rad);
+  
+  return { x, y };
+}
+
+function getCardMiniIcon(type) {
+  const icons = {
+    'BARREL': '🛢️',
+    'MUSTANG': '🐴',
+    'SCOPE': '🔭',
+    'JAIL': '⛓️',
+    'DYNAMITE': '🧨'
+  }
+  return icons[type] || '📄'
 }
 
 function isCardPlayable(card) {
@@ -397,5 +470,64 @@ function getWinnerText() {
 
 function returnToLobby() {
   router.push('/')
+}
+
+function getCharacterImage(name) {
+  if (!name) return '';
+  const cleanName = name.replace(/[^a-zA-Z]/g, '').toLowerCase();
+  return `/images/characters/${cleanName}.png`;
+}
+
+function getRoleImage(role) {
+  if (!role) return '';
+  return `/images/roles/${role.toLowerCase()}.png`;
+}
+
+function getFanStyle(index, total, isSelected) {
+  if (total === 0) return {};
+  
+  // Calculate angle
+  const maxAngle = 30; // Reduced angle for easier selection
+  const angleStep = Math.min(maxAngle / (total - 1 || 1), 5); // Max 5 degrees per card
+  const startAngle = -((total - 1) * angleStep) / 2;
+  let angle = startAngle + (index * angleStep);
+  
+  // Calculate offset (arch effect)
+  let yOffset = Math.abs(angle) * 1.5;
+  let xOffset = (index - (total - 1) / 2) * 45; // Increased base spacing
+  let scale = 1;
+  let zIndex = index;
+  let yTrans = 0;
+
+  // Hover Spread Effect
+  if (hoveredCardIndex.value !== -1) {
+    const diff = index - hoveredCardIndex.value;
+    const spreadAmount = 60; // Constant gap size
+
+    if (diff === 0) {
+       // Current hovered card
+       scale = 1.3;
+       zIndex = 100;
+       yTrans = -60;
+       yOffset = 0; // Flatten arch for hovered
+       angle = 0; // Straighten
+    } else if (diff < 0) {
+       // Shift ALL left neighbors equally to preserve their relative overlap
+       xOffset -= spreadAmount;
+    } else {
+       // Shift ALL right neighbors equally
+       xOffset += spreadAmount;
+    }
+  }
+
+  if (isSelected) {
+      yTrans -= 40;
+      scale = Math.max(scale, 1.1);
+  }
+
+  return {
+    transform: `translateX(${xOffset}px) translateY(${yOffset + yTrans}px) rotate(${angle}deg) scale(${scale})`,
+    zIndex: zIndex
+  };
 }
 </script>

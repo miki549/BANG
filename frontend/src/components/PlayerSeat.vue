@@ -1,89 +1,127 @@
 <template>
   <div
-    class="player-seat"
+    class="player-board absolute select-none transition-all duration-300"
     :class="{
-      'current-turn': isCurrentTurn,
-      'ring-2 ring-red-500 cursor-pointer hover:ring-red-400': isTargetable,
-      'opacity-40 grayscale': !player.alive,
-      'ring-2 ring-yellow-500 animate-pulse': isPendingAction
+      'z-30': isCurrentTurn || isTargetable,
+      'z-10': !isCurrentTurn && !isTargetable,
+      'scale-105': isCurrentTurn,
+      'grayscale opacity-70': !player.alive
     }"
     :style="positionStyle"
     :data-player-id="player.id"
     @click="isTargetable && $emit('select', player)"
   >
-    <!-- Character Avatar -->
-    <div class="relative">
-      <div class="w-16 h-16 rounded-full overflow-hidden border-2"
-           :class="isCurrentTurn ? 'border-western-gold' : 'border-western-sand/30'">
-        <div class="w-full h-full bg-western-leather flex items-center justify-center">
-          <span class="text-2xl font-bold text-western-sand">
-            {{ player.name?.charAt(0).toUpperCase() }}
-          </span>
+    <!-- Target Overlay -->
+    <div v-if="isTargetable" 
+         class="absolute -inset-2 border-4 border-red-500 rounded-lg animate-pulse z-50 pointer-events-none shadow-[0_0_20px_rgba(239,68,68,0.6)]">
+    </div>
+
+    <!-- Turn Indicator -->
+    <div v-if="isCurrentTurn" 
+         class="absolute -inset-2 border-4 border-western-gold rounded-lg z-0 shadow-[0_0_20px_rgba(218,165,32,0.4)]">
+    </div>
+
+    <!-- Pending Action Indicator -->
+    <div v-if="isPendingAction" 
+         class="absolute -inset-2 border-4 border-yellow-500 rounded-lg animate-pulse z-50 pointer-events-none">
+    </div>
+
+    <!-- Main Board Area -->
+    <div class="relative bg-stone-900/95 border-2 border-amber-800 rounded-lg shadow-xl overflow-visible w-auto flex flex-col">
+      
+      <!-- Header: Name & Stats -->
+      <div class="flex justify-between items-center px-2 py-1 bg-black/40 border-b border-amber-800/30">
+        <!-- Name (Left) -->
+        <div class="text-left font-bold text-western-sand text-shadow-sm truncate text-xs">
+          {{ player.name }}
+        </div>
+        
+        <!-- Stats (Right) -->
+        <div class="flex items-center gap-2">
+           <!-- Health -->
+           <div class="flex flex-wrap justify-center gap-1">
+              <div v-for="i in player.maxHealth" :key="i"
+                   class="w-2 h-2 rounded-full border border-stone-900 shadow-sm transition-colors duration-300"
+                   :class="i <= player.health ? 'bg-red-600' : 'bg-stone-700'">
+              </div>
+           </div>
+           
+           <!-- Hand Size -->
+           <div class="flex items-center gap-1 text-western-sand/90 text-[0.65rem] font-bold">
+              <span>🃏</span>
+              <span class="font-mono">{{ player.handSize }}</span>
+           </div>
         </div>
       </div>
-      
-      <!-- Sheriff Badge -->
-      <div v-if="player.isSheriff" 
-           class="absolute -top-1 -right-1 w-6 h-6 bg-western-gold rounded-full flex items-center justify-center
-                  border-2 border-western-dark text-xs">
-        ⭐
-      </div>
 
-      <!-- Dead Marker -->
-      <div v-if="!player.alive"
-           class="absolute inset-0 flex items-center justify-center">
-        <span class="text-4xl">💀</span>
+      <!-- Slots Row -->
+      <div class="flex h-24">
+        <!-- LEFT: Role Card -->
+        <div class="w-16 h-full border-r border-amber-800/50 bg-stone-800 relative flex-shrink-0">
+           <div class="w-full h-full overflow-hidden relative"
+                :class="player.role ? '' : 'bg-stone-700 pattern-diagonal-stripes'">
+              <img
+                 v-if="player.role"
+                 :src="getRoleImage(player.role)"
+                 :alt="player.role"
+                 class="w-full h-full object-contain p-1"
+              />
+              <div v-else class="w-full h-full flex items-center justify-center text-stone-500 text-xs">?</div>
+              
+              <!-- Sheriff Badge Overlay -->
+               <div v-if="player.isSheriff" class="absolute top-1 right-1 text-xl drop-shadow-md" title="Sheriff">⭐</div>
+           </div>
+        </div>
+
+        <!-- CENTER: Character (Shrunk) -->
+        <div class="w-16 h-full relative flex flex-col bg-stone-800 overflow-hidden group border-r border-amber-800/50">
+           <!-- Character Image -->
+           <div class="w-full h-full relative p-1">
+               <img
+                 v-if="player.characterName"
+                 :src="getCharacterImage(player.characterName)"
+                 :alt="player.characterName"
+                 class="w-full h-full object-contain opacity-80 group-hover:opacity-100 transition-opacity duration-300"
+               />
+               <div v-else class="w-full h-full flex items-center justify-center text-2xl">🤠</div>
+           </div>
+        </div>
+
+        <!-- RIGHT: Blue Cards (Vertical Stack) -->
+        <div class="w-16 h-full border-l border-amber-800/50 bg-stone-800/50 relative flex-shrink-0 flex flex-col overflow-visible z-20 group/stack">
+            <div class="relative w-full h-full flex flex-col items-center justify-start">
+               <div class="flex flex-col items-center -space-y-20 group-hover/stack:-space-y-12 transition-all duration-300 w-full">
+                  <div v-for="(card, index) in tableCards" :key="card.id || index"
+                       class="w-full h-24 flex-shrink-0 relative group/card"
+                       :style="{ zIndex: index }">
+                       
+                     <div class="w-full h-full rounded overflow-hidden shadow-md relative transition-all duration-300 ease-out group-hover/card:!z-[100] group-hover/card:scale-[1.7] group-hover/card:-translate-x-16 group-hover/card:translate-y-4 origin-center cursor-help delay-75 group-hover/card:delay-0"
+                          :title="card.type">
+                       
+                       <img :src="getCardImage(card.type)" class="w-full h-full object-contain" />
+                       
+                       <!-- Weapon Range Badge -->
+                       <div v-if="card.isWeapon" class="absolute bottom-0 right-0 bg-stone-900/90 text-[0.6rem] text-white px-1 rounded-tl">
+                          {{ getWeaponRange(card.type) }}
+                       </div>
+
+                       <!-- Tooltip -->
+                       <div class="absolute right-full mr-2 top-1/2 -translate-y-1/2 hidden group-hover/card:block bg-black/90 text-white text-[0.6rem] px-2 py-1 rounded whitespace-nowrap z-[110] border border-western-gold/50 shadow-lg pointer-events-none">
+                           {{ card.type }}
+                       </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+        </div>
       </div>
     </div>
 
-    <!-- Player Name -->
-    <div class="text-center">
-      <div class="font-semibold text-western-sand text-sm truncate max-w-24">
-        {{ player.name }}
-      </div>
-      <div class="text-xs text-western-gold/80">
-        {{ player.characterName }}
-      </div>
-    </div>
-
-    <!-- Health Bar -->
-    <HealthBar :current="player.health" :max="player.maxHealth" size="small" />
-
-    <!-- Cards in Hand Indicator -->
-    <div class="flex items-center gap-1 text-xs text-western-sand/60">
-      <span>🃏</span>
-      <span>{{ player.handSize }}</span>
-    </div>
-
-    <!-- Cards in Play -->
-    <div v-if="player.cardsInPlay?.length > 0" class="flex gap-1 mt-1">
-      <div v-for="card in player.cardsInPlay" :key="card.id"
-           class="w-6 h-8 bg-blue-400/30 rounded border border-blue-400/50 flex items-center justify-center text-xs"
-           :title="card.type">
-        {{ getCardMiniIcon(card.type) }}
-      </div>
-    </div>
-
-    <!-- Weapon -->
-    <div v-if="player.weapon" class="mt-1">
-      <div class="text-xs bg-western-dark/50 px-2 py-0.5 rounded text-western-gold">
-        🔫 {{ player.weapon.type?.replace('_', ' ') }}
-      </div>
-    </div>
-
-    <!-- Role (only shown if visible) -->
-    <div v-if="player.role" class="mt-1">
-      <span class="text-xs px-2 py-0.5 rounded"
-            :class="getRoleClass(player.role)">
-        {{ player.role }}
-      </span>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import HealthBar from './HealthBar.vue'
 
 const props = defineProps({
   player: {
@@ -116,24 +154,107 @@ const positionStyle = computed(() => ({
   transform: 'translate(-50%, -50%)'
 }))
 
+const tableCards = computed(() => {
+  const cards = []
+  if (props.player.weapon) {
+    cards.push({ ...props.player.weapon, isWeapon: true })
+  }
+  if (props.player.cardsInPlay) {
+    cards.push(...props.player.cardsInPlay)
+  }
+  return cards
+})
+
 function getCardMiniIcon(type) {
   const icons = {
     'BARREL': '🛢️',
     'MUSTANG': '🐴',
     'SCOPE': '🔭',
     'JAIL': '⛓️',
-    'DYNAMITE': '🧨'
+    'DYNAMITE': '🧨',
+    'VOLCANIC': '🔫',
+    'SCHOFIELD': '🔫',
+    'REMINGTON': '🔫',
+    'REV_CARABINE': '🔫',
+    'WINCHESTER': '🔫'
   }
   return icons[type] || '📄'
 }
 
-function getRoleClass(role) {
-  const classes = {
-    'SHERIFF': 'bg-yellow-500/30 text-yellow-300',
-    'DEPUTY': 'bg-blue-500/30 text-blue-300',
-    'OUTLAW': 'bg-red-500/30 text-red-300',
-    'RENEGADE': 'bg-purple-500/30 text-purple-300'
+function getWeaponRange(type) {
+  const ranges = {
+    'VOLCANIC': 1,
+    'SCHOFIELD': 2,
+    'REMINGTON': 3,
+    'REV_CARABINE': 4,
+    'WINCHESTER': 5
   }
-  return classes[role] || 'bg-gray-500/30 text-gray-300'
+  return ranges[type] || 1
+}
+
+function getRoleBgClass(role) {
+  // Not used anymore for background, but keeping function if needed elsewhere
+  const classes = {
+    'SHERIFF': 'bg-yellow-900/80 text-yellow-200 border-yellow-600',
+    'DEPUTY': 'bg-blue-900/80 text-blue-200 border-blue-600',
+    'OUTLAW': 'bg-red-900/80 text-red-200 border-red-600',
+    'RENEGADE': 'bg-purple-900/80 text-purple-200 border-purple-600'
+  }
+  return classes[role] || 'bg-stone-700 text-stone-300'
+}
+
+function getCharacterImage(name) {
+  if (!name) return '';
+  const cleanName = name.replace(/[^a-zA-Z]/g, '').toLowerCase();
+  return `/images/characters/${cleanName}.png`;
+}
+
+function getRoleImage(role) {
+  if (!role) return '';
+  return `/images/roles/${role.toLowerCase()}.png`;
+}
+
+function getCardImage(type) {
+  const imageMap = {
+    'BANG': 'bang.png',
+    'MISSED': 'missed.png',
+    'BEER': 'beer.png',
+    'SALOON': 'saloon.png',
+    'STAGECOACH': 'stagecoach.png',
+    'WELLS_FARGO': 'wellsfargo.png',
+    'PANIC': 'panic.png',
+    'CAT_BALOU': 'catbalou.png',
+    'DUEL': 'duel.png',
+    'GATLING': 'gatling.png',
+    'INDIANS': 'indians.png',
+    'GENERAL_STORE': 'generalstore.png',
+    'BARREL': 'barrel.png',
+    'MUSTANG': 'mustang.png',
+    'SCOPE': 'scope.png',
+    'JAIL': 'jail.png',
+    'DYNAMITE': 'dinamite.png',
+    'VOLCANIC': 'volcanic.png',
+    'SCHOFIELD': 'schofield.png',
+    'REMINGTON': 'remington.png',
+    'REV_CARABINE': 'carabine.png',
+    'WINCHESTER': 'winchester.png'
+  }
+  const filename = imageMap[type] || 'bang.png'
+  return `/images/cards/${filename}`
 }
 </script>
+
+<style scoped>
+.font-western {
+  font-family: 'Rye', serif; /* Assuming this font is loaded globally or available */
+}
+.pattern-diagonal-stripes {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 5px,
+    rgba(255, 255, 255, 0.05) 5px,
+    rgba(255, 255, 255, 0.05) 10px
+  );
+}
+</style>

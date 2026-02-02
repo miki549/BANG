@@ -19,8 +19,8 @@
         @error="onImageError"
       />
       
-      <!-- Suit & Value Badge (bottom right) -->
-      <div class="absolute bottom-1 right-1 bg-white/90 rounded px-1.5 py-0.5 flex items-center gap-1 shadow-md">
+      <!-- Suit & Value Badge (bottom left) -->
+      <div class="absolute bottom-0 left-1 flex items-center gap-0.5">
         <span class="text-sm font-bold" :class="getSuitColor()">
           {{ getSuitSymbol() }}
         </span>

@@ -21,11 +21,11 @@
       
       <!-- Suit & Value Badge (bottom left) -->
       <div class="absolute bottom-0 left-1 flex items-center gap-0.5">
-        <span class="text-sm font-bold" :class="getSuitColor()">
-          {{ getSuitSymbol() }}
-        </span>
         <span class="text-xs font-semibold text-gray-800">
           {{ card.value }}
+        </span>
+        <span class="text-sm font-bold" :class="getSuitColor()">
+          {{ getSuitSymbol() }}
         </span>
       </div>
     </div>

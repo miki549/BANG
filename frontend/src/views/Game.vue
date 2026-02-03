@@ -85,15 +85,21 @@
                     </div>
                     <div class="flex items-center gap-2">
                        <!-- Health -->
-                       <div class="flex flex-wrap justify-center gap-1">
+                       <div class="flex flex-wrap justify-center gap-0.4">
                           <div v-for="i in (currentPlayer?.maxHealth || 4)" :key="i"
-                               class="w-2 h-2 rounded-full border border-stone-900 shadow-sm transition-colors duration-300"
-                               :class="i <= (currentPlayer?.health || 0) ? 'bg-red-600' : 'bg-stone-700'">
+                               class="w-6 h-6 rounded-full">
+                               <img src="/images/common/hp.png" alt="HP"
+                                    class="w-full h-full object-contain rotate-45 drop-shadow-sm transition-all duration-500"
+                                    :class="{
+                                      'opacity-30 grayscale': i > (currentPlayer?.health || 0) && !flashingIndices.has(i) && !flashingGreenIndices.has(i),
+                                      'animate-flash-bullet': flashingIndices.has(i),
+                                      'animate-flash-green-bullet': flashingGreenIndices.has(i)
+                                    }" />
                           </div>
                        </div>
                        <!-- Hand Size -->
-                       <div class="flex items-center gap-1 text-western-sand/90 text-xs font-bold">
-                          <span>🃏</span>
+                       <div class="flex items-center gap-2 text-western-sand/90 text-lg font-bold">
+                          <img src="/images/common/deck.png" alt="Cards" class="w-6 h-6 object-contain" />
                           <span class="font-mono">{{ currentPlayer?.handSize || 0 }}</span>
                        </div>
                     </div>
@@ -104,7 +110,6 @@
                     <!-- LEFT: Role Card -->
                     <div class="w-24 h-full border-r border-amber-800/50 bg-stone-800 relative flex-shrink-0 z-10 hover:z-50">
                        <div class="w-full h-full overflow-visible relative transition-transform duration-300 hover:scale-125 cursor-help origin-center shadow-lg"
-                            :class="currentPlayer?.role ? '' : 'bg-stone-700 pattern-diagonal-stripes'"
                             @wheel="handleCardWheel($event, { imageSrc: getRoleImage(currentPlayer.role), title: currentPlayer.role })">
                           <img
                              v-if="currentPlayer?.role"
@@ -112,14 +117,20 @@
                              :alt="currentPlayer.role"
                              class="w-full h-full object-contain p-1"
                           />
-                          <div v-else class="w-full h-full flex items-center justify-center text-stone-500 text-xs">?</div>
-                          <div v-if="currentPlayer?.isSheriff" class="absolute top-1 right-1 text-xl drop-shadow-md" title="Sheriff">⭐</div>
+                          <!-- Hidden Role Card -->
+                          <div v-else class="w-full h-full flex items-center justify-center p-1">
+                            <div class="h-full aspect-[2/3] rounded bg-stone-800 border-2 border-stone-600 flex items-center justify-center relative shadow-sm">
+                                <div class="absolute inset-0 pattern-diagonal-stripes opacity-30"></div>
+                                <span class="text-stone-500 text-4xl font-bold z-10">?</span>
+                            </div>
+                          </div>
+                          <div v-if="currentPlayer?.isSheriff" class="absolute top-1 right-1 text-xl drop-shadow-md z-20" title="Sheriff">⭐</div>
                        </div>
                     </div>
 
                     <!-- CENTER: Character -->
                     <div class="w-24 h-full relative flex flex-col bg-stone-800 overflow-visible group border-r border-amber-800/50 z-10 hover:z-50">
-                       <div class="w-full h-full relative p-1 transition-transform duration-300 group-hover:scale-125 cursor-help origin-center shadow-lg bg-stone-800"
+                       <div class="w-full h-full relative p-1 transition-transform duration-300 group-hover:scale-125 cursor-help origin-center shadow-lg"
                             @wheel="handleCardWheel($event, { imageSrc: getCharacterImage(currentPlayer.characterName), title: currentPlayer.characterName })">
                            <img
                              v-if="currentPlayer?.characterName"
@@ -136,12 +147,22 @@
                         <div class="relative w-full h-full flex flex-col items-center justify-start">
                            <div class="flex flex-col items-center -space-y-24 group-hover/stack:-space-y-16 transition-all duration-300 w-full">
                               <div v-for="(card, index) in currentTableCards" :key="card.id || index"
-                                   class="w-full h-32 flex-shrink-0 relative group/card"
+                                   class="w-full h-32 flex-shrink-0 relative group/card flex justify-center"
                                    :style="{ zIndex: index }">
-                                 <div class="w-full h-full rounded overflow-hidden shadow-md relative transition-all duration-300 ease-out group-hover/card:!z-[100] group-hover/card:scale-[1.5] group-hover/card:-translate-x-24 group-hover/card:translate-y-4 origin-center cursor-help delay-75 group-hover/card:delay-0"
+                                 <div class="h-full aspect-[2/3] rounded overflow-hidden shadow-md relative transition-all duration-300 ease-out group-hover/card:!z-[100] group-hover/card:scale-[1.5] group-hover/card:-translate-x-24 group-hover/card:translate-y-4 origin-center cursor-help delay-75 group-hover/card:delay-0"
                                       :title="card.type"
-                                      @wheel="handleCardWheel($event, { imageSrc: getCardImage(card.type), title: card.type })">
+                                      @wheel="handleCardWheel($event, { imageSrc: getCardImage(card.type), title: card.type, suit: card.suit, value: card.value })">
                                    <img :src="getCardImage(card.type)" class="w-full h-full object-contain" />
+                                   
+                                   <!-- Suit & Value Badge -->
+                                   <div class="absolute bottom-0 left-1 flex items-center gap-0.5 z-10">
+                                     <span class="text-xs font-semibold text-gray-800">
+                                       {{ card.value }}
+                                     </span>
+                                     <span class="text-sm font-bold" :class="getSuitColor(card.suit)">
+                                       {{ getSuitSymbol(card.suit) }}
+                                     </span>
+                                   </div>
                                  </div>
                                </div>
                            </div>
@@ -161,7 +182,7 @@
                      @mouseenter="hoveredCardIndex = index"
                      @mouseleave="hoveredCardIndex = -1"
                      @click="handleCardClick(card)"
-                     @wheel="handleCardWheel($event, { imageSrc: getCardImage(card.type), title: card.type })">
+                     @wheel="handleCardWheel($event, { imageSrc: getCardImage(card.type), title: card.type, suit: card.suit, value: card.value })">
                   <CardComponent
                     :card="card"
                     :selected="selectedCard?.id === card.id"
@@ -208,10 +229,21 @@
          class="fixed inset-0 bg-black/70 flex items-center justify-center z-[150]"
          @wheel="handleOverlayWheel"
          @click="inspectedCard = null">
-      <div class="relative transform transition-all duration-300 scale-150 p-4">
+      <div class="relative transform transition-all duration-300 scale-150 inline-block">
          <img :src="inspectedCard.imageSrc"
               :alt="inspectedCard.title"
               class="max-h-[80vh] max-w-[80vw] object-contain rounded-xl shadow-2xl drop-shadow-2xl" />
+         
+         <!-- Inspected Card Badge -->
+         <div v-if="inspectedCard.suit && inspectedCard.value"
+              class="absolute bottom-2 left-3 flex items-center gap-0.5 z-10">
+            <span class="text-3xl font-semibold text-gray-800 drop-shadow-md">
+              {{ inspectedCard.value }}
+            </span>
+            <span class="text-4xl font-bold drop-shadow-md" :class="getSuitColor(inspectedCard.suit)">
+              {{ getSuitSymbol(inspectedCard.suit) }}
+            </span>
+         </div>
       </div>
     </div>
 
@@ -232,7 +264,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../stores/gameStore'
 import CardComponent from '../components/CardComponent.vue'
@@ -247,6 +279,8 @@ const selectedCard = ref(null)
 const selectedTarget = ref(null)
 const hoveredCardIndex = ref(-1)
 const inspectedCard = ref(null)
+const flashingIndices = ref(new Set())
+const flashingGreenIndices = ref(new Set())
 
 const roomId = computed(() => route.params.roomId)
 const gameState = computed(() => gameStore.gameState)
@@ -330,6 +364,7 @@ onUnmounted(() => {
 })
 
 function handleCardWheel(event, cardData) {
+  if (!cardData.imageSrc) return
   if (event.deltaY < 0) { // Scroll UP
     event.preventDefault()
     inspectedCard.value = cardData
@@ -354,6 +389,26 @@ function handleGameMessage(event) {
 function handleGameEvent(event) {
   gameStore.handleGameEvent(event.detail)
 }
+
+watch(() => currentPlayer.value?.health, (newVal, oldVal) => {
+  if (oldVal !== undefined && newVal !== undefined) {
+    if (oldVal > newVal) {
+      for (let i = newVal + 1; i <= oldVal; i++) {
+        flashingIndices.value.add(i)
+        setTimeout(() => {
+          flashingIndices.value.delete(i)
+        }, 3200)
+      }
+    } else if (newVal > oldVal) {
+      for (let i = oldVal + 1; i <= newVal; i++) {
+        flashingGreenIndices.value.add(i)
+        setTimeout(() => {
+          flashingGreenIndices.value.delete(i)
+        }, 3200)
+      }
+    }
+  }
+})
 
 function getPlayerPosition(index, total) {
   // Elliptical distribution for up to 7 players (6 opponents)
@@ -540,6 +595,23 @@ function getRoleImage(role) {
   return `/images/roles/${role.toLowerCase()}.png`;
 }
 
+function getSuitSymbol(suit) {
+  const suits = {
+    'HEARTS': '♥',
+    'DIAMONDS': '♦',
+    'CLUBS': '♣',
+    'SPADES': '♠'
+  }
+  return suits[suit] || '?'
+}
+
+function getSuitColor(suit) {
+  if (suit === 'HEARTS' || suit === 'DIAMONDS') {
+    return 'text-red-500'
+  }
+  return 'text-gray-800'
+}
+
 function getCardImage(type) {
   const imageMap = {
     'BANG': 'bang.png',
@@ -628,3 +700,39 @@ function getFanStyle(index, total, isSelected) {
   };
 }
 </script>
+
+<style scoped>
+.font-western {
+  font-family: 'Rye', serif;
+}
+
+.animate-flash-bullet {
+  animation: flashBullet 1s infinite;
+}
+
+.animate-flash-green-bullet {
+  animation: flashGreenBullet 1s infinite;
+}
+
+@keyframes flashBullet {
+  0%, 100% {
+    filter: sepia(1) saturate(10) hue-rotate(-50deg) drop-shadow(0 0 5px red);
+    opacity: 1;
+  }
+  50% {
+    filter: grayscale(1);
+    opacity: 0.3;
+  }
+}
+
+@keyframes flashGreenBullet {
+  0%, 100% {
+    filter: sepia(1) saturate(5) hue-rotate(60deg) drop-shadow(0 0 5px green);
+    opacity: 1;
+  }
+  50% {
+    filter: grayscale(1);
+    opacity: 0.3;
+  }
+}
+</style>

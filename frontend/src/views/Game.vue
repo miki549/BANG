@@ -20,7 +20,7 @@
     <!-- Game Table -->
     <main class="flex-1 relative game-table">
       <!-- Center Area -->
-      <div class="game-center absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 
+      <div class="game-center absolute top-[50%] left-[50%] transform -translate-x-1/2 -translate-y-1/2
                   flex items-center justify-center gap-8">
         <!-- Draw Pile -->
         <div class="deck-pile">
@@ -48,6 +48,7 @@
         :isTargetable="canTargetPlayer(player)"
         :isPendingAction="player.id === gameState?.pendingActionPlayerId"
         @select="selectTarget(player)"
+        @inspect="handleInspect"
       />
 
       <!-- Action Prompt -->
@@ -73,74 +74,85 @@
         
         <div class="flex items-end gap-6 w-full max-w-7xl justify-center">
             <!-- My Player Board -->
-            <div class="player-board relative transform-none w-[340px] h-32 flex-shrink-0 mb-4"
+            <div class="player-board relative transform-none w-auto flex-shrink-0 mb-24 ml-80"
                  :class="{ 'current-turn': isMyTurn }">
-                <!-- Left: Character & Role -->
-                <div class="w-20 h-full border-r border-amber-800/50 bg-stone-800 relative flex-shrink-0">
-                  <!-- Character -->
-                  <div class="absolute inset-1 bg-stone-700 rounded border border-stone-600 overflow-hidden">
-                       <img
-                         v-if="currentPlayer?.characterName"
-                         :src="getCharacterImage(currentPlayer.characterName)"
-                         :alt="currentPlayer.characterName"
-                         class="w-full h-full object-cover"
-                       />
-                       <div v-else class="w-full h-full flex items-center justify-center text-3xl">🤠</div>
-                  </div>
-                  
-                  <!-- Role Overlay (Small) or separate? -->
-                  <!-- In the main dashboard, maybe we want the role separate like in PlayerSeat? -->
-                  <!-- But the dashboard structure here is different. Let's try to fit it. -->
-                  <!-- Actually, let's use a separate slot for Role if space allows, or overlay. -->
-                  <div class="absolute -bottom-2 -right-2 w-10 h-14 rounded border border-stone-600 overflow-hidden shadow-md z-20">
-                      <img
-                         v-if="currentPlayer?.role"
-                         :src="getRoleImage(currentPlayer.role)"
-                         :alt="currentPlayer.role"
-                         class="w-full h-full object-cover"
-                      />
-                  </div>
-                </div>
-
-                <!-- Middle: Stats -->
-                <div class="board-section-middle">
-                  <div class="flex flex-col">
-                      <div class="player-name text-xl">{{ currentPlayer?.name || 'You' }}</div>
-                      <div class="text-xs text-western-gold/80 truncate">{{ currentPlayer?.characterName }}</div>
-                      <div class="text-[10px] text-western-sand/50 truncate max-w-[140px]" :title="currentPlayer?.characterAbility">
-                        {{ currentPlayer?.characterAbility }}
-                      </div>
+              
+              <div class="relative bg-stone-900/95 border-2 border-amber-800 rounded-lg shadow-xl overflow-visible w-auto flex flex-col">
+                  <!-- Header: Name & Stats -->
+                  <div class="flex justify-between items-center px-2 py-1 bg-black/40 border-b border-amber-800/30">
+                    <div class="text-left font-bold text-western-sand text-shadow-sm truncate text-sm">
+                      {{ currentPlayer?.name || 'You' }}
+                    </div>
+                    <div class="flex items-center gap-2">
+                       <!-- Health -->
+                       <div class="flex flex-wrap justify-center gap-1">
+                          <div v-for="i in (currentPlayer?.maxHealth || 4)" :key="i"
+                               class="w-2 h-2 rounded-full border border-stone-900 shadow-sm transition-colors duration-300"
+                               :class="i <= (currentPlayer?.health || 0) ? 'bg-red-600' : 'bg-stone-700'">
+                          </div>
+                       </div>
+                       <!-- Hand Size -->
+                       <div class="flex items-center gap-1 text-western-sand/90 text-xs font-bold">
+                          <span>🃏</span>
+                          <span class="font-mono">{{ currentPlayer?.handSize || 0 }}</span>
+                       </div>
+                    </div>
                   </div>
 
-                  <div class="health-container mt-2">
-                     <div v-for="i in (currentPlayer?.maxHealth || 4)" :key="i"
-                          class="bullet-slot w-3 h-5"
-                          :class="{ 'full': i <= (currentPlayer?.health || 0) }">
-                     </div>
-                  </div>
-                </div>
+                  <!-- Slots Row -->
+                  <div class="flex h-32">
+                    <!-- LEFT: Role Card -->
+                    <div class="w-24 h-full border-r border-amber-800/50 bg-stone-800 relative flex-shrink-0 z-10 hover:z-50">
+                       <div class="w-full h-full overflow-visible relative transition-transform duration-300 hover:scale-125 cursor-help origin-center shadow-lg"
+                            :class="currentPlayer?.role ? '' : 'bg-stone-700 pattern-diagonal-stripes'"
+                            @wheel="handleCardWheel($event, { imageSrc: getRoleImage(currentPlayer.role), title: currentPlayer.role })">
+                          <img
+                             v-if="currentPlayer?.role"
+                             :src="getRoleImage(currentPlayer.role)"
+                             :alt="currentPlayer.role"
+                             class="w-full h-full object-contain p-1"
+                          />
+                          <div v-else class="w-full h-full flex items-center justify-center text-stone-500 text-xs">?</div>
+                          <div v-if="currentPlayer?.isSheriff" class="absolute top-1 right-1 text-xl drop-shadow-md" title="Sheriff">⭐</div>
+                       </div>
+                    </div>
 
-                <!-- Right: Equipment -->
-                <div class="board-section-right w-24">
-                   <!-- Weapon -->
-                   <div class="equipment-slot h-10" :title="currentPlayer?.weapon ? currentPlayer.weapon.name : 'Colt .45'">
-                      <div v-if="currentPlayer?.weapon" class="card-mini weapon-card text-xs">{{ currentPlayer.weapon.type?.replace('_', ' ') }}</div>
-                      <div v-else class="card-mini text-gray-500 opacity-50 text-xl">🔫</div>
-                   </div>
-                   
-                   <!-- Blue Cards -->
-                   <div class="flex-1 grid grid-cols-2 gap-1 overflow-hidden content-start">
-                      <div v-for="card in currentPlayer?.cardsInPlay" :key="card.id"
-                           class="equipment-slot h-8"
-                           :title="card.type">
-                         <div class="card-mini blue-card text-xs">{{ getCardMiniIcon(card.type) }}</div>
-                      </div>
-                   </div>
-                </div>
+                    <!-- CENTER: Character -->
+                    <div class="w-24 h-full relative flex flex-col bg-stone-800 overflow-visible group border-r border-amber-800/50 z-10 hover:z-50">
+                       <div class="w-full h-full relative p-1 transition-transform duration-300 group-hover:scale-125 cursor-help origin-center shadow-lg bg-stone-800"
+                            @wheel="handleCardWheel($event, { imageSrc: getCharacterImage(currentPlayer.characterName), title: currentPlayer.characterName })">
+                           <img
+                             v-if="currentPlayer?.characterName"
+                             :src="getCharacterImage(currentPlayer.characterName)"
+                             :alt="currentPlayer.characterName"
+                             class="w-full h-full object-contain opacity-80 group-hover:opacity-100 transition-opacity duration-300"
+                           />
+                           <div v-else class="w-full h-full flex items-center justify-center text-2xl">🤠</div>
+                       </div>
+                    </div>
+
+                    <!-- RIGHT: Blue Cards -->
+                    <div class="w-24 h-full border-l border-amber-800/50 bg-stone-800/50 relative flex-shrink-0 flex flex-col overflow-visible z-20 group/stack">
+                        <div class="relative w-full h-full flex flex-col items-center justify-start">
+                           <div class="flex flex-col items-center -space-y-24 group-hover/stack:-space-y-16 transition-all duration-300 w-full">
+                              <div v-for="(card, index) in currentTableCards" :key="card.id || index"
+                                   class="w-full h-32 flex-shrink-0 relative group/card"
+                                   :style="{ zIndex: index }">
+                                 <div class="w-full h-full rounded overflow-hidden shadow-md relative transition-all duration-300 ease-out group-hover/card:!z-[100] group-hover/card:scale-[1.5] group-hover/card:-translate-x-24 group-hover/card:translate-y-4 origin-center cursor-help delay-75 group-hover/card:delay-0"
+                                      :title="card.type"
+                                      @wheel="handleCardWheel($event, { imageSrc: getCardImage(card.type), title: card.type })">
+                                   <img :src="getCardImage(card.type)" class="w-full h-full object-contain" />
+                                 </div>
+                               </div>
+                           </div>
+                        </div>
+                    </div>
+                  </div>
+              </div>
             </div>
 
             <!-- Hand Cards (Fan Layout) -->
-            <div class="flex-1 flex justify-center items-end -mb-4 overflow-visible pb-12 perspective-1000">
+            <div class="flex-1 flex justify-center items-end mb-20 overflow-visible pb-12 perspective-1000">
               <div class="relative flex justify-center items-end w-full h-40">
                 <div v-for="(card, index) in myHand"
                      :key="card.id"
@@ -148,7 +160,8 @@
                      :style="getFanStyle(index, myHand.length, selectedCard?.id === card.id)"
                      @mouseenter="hoveredCardIndex = index"
                      @mouseleave="hoveredCardIndex = -1"
-                     @click="handleCardClick(card)">
+                     @click="handleCardClick(card)"
+                     @wheel="handleCardWheel($event, { imageSrc: getCardImage(card.type), title: card.type })">
                   <CardComponent
                     :card="card"
                     :selected="selectedCard?.id === card.id"
@@ -190,9 +203,21 @@
       </div>
     </main>
 
+    <!-- Inspection Overlay -->
+    <div v-if="inspectedCard"
+         class="fixed inset-0 bg-black/70 flex items-center justify-center z-[150]"
+         @wheel="handleOverlayWheel"
+         @click="inspectedCard = null">
+      <div class="relative transform transition-all duration-300 scale-150 p-4">
+         <img :src="inspectedCard.imageSrc"
+              :alt="inspectedCard.title"
+              class="max-h-[80vh] max-w-[80vw] object-contain rounded-xl shadow-2xl drop-shadow-2xl" />
+      </div>
+    </div>
+
     <!-- Game Over Overlay -->
-    <div v-if="isGameOver" 
-         class="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+    <div v-if="isGameOver"
+         class="fixed inset-0 bg-black/80 flex items-center justify-center z-[200]">
       <div class="bg-western-dark border-4 border-western-gold rounded-2xl p-12 text-center">
         <h2 class="font-western text-5xl text-western-gold mb-4">Game Over!</h2>
         <p class="text-2xl text-western-sand mb-2">
@@ -221,6 +246,7 @@ const gameStore = useGameStore()
 const selectedCard = ref(null)
 const selectedTarget = ref(null)
 const hoveredCardIndex = ref(-1)
+const inspectedCard = ref(null)
 
 const roomId = computed(() => route.params.roomId)
 const gameState = computed(() => gameStore.gameState)
@@ -233,6 +259,19 @@ const needsToRespond = computed(() => gameStore.needsToRespond)
 const drawPileSize = computed(() => gameState.value?.drawPileSize || 0)
 const topDiscardCard = computed(() => gameState.value?.topDiscardCard)
 const isGameOver = computed(() => gameState.value?.phase === 'GAME_OVER')
+
+const currentTableCards = computed(() => {
+  const player = currentPlayer.value
+  if (!player) return []
+  const cards = []
+  if (player.weapon) {
+    cards.push({ ...player.weapon, isWeapon: true })
+  }
+  if (player.cardsInPlay) {
+    cards.push(...player.cardsInPlay)
+  }
+  return cards
+})
 
 const currentPlayerName = computed(() => {
   const player = gameState.value?.players?.find(p => p.id === gameState.value?.currentPlayerId)
@@ -290,6 +329,24 @@ onUnmounted(() => {
   window.removeEventListener('game-event', handleGameEvent)
 })
 
+function handleCardWheel(event, cardData) {
+  if (event.deltaY < 0) { // Scroll UP
+    event.preventDefault()
+    inspectedCard.value = cardData
+  }
+}
+
+function handleOverlayWheel(event) {
+  if (event.deltaY > 0) { // Scroll DOWN
+    event.preventDefault()
+    inspectedCard.value = null
+  }
+}
+
+function handleInspect(cardData) {
+  inspectedCard.value = cardData
+}
+
 function handleGameMessage(event) {
   gameStore.handleGameMessage(event.detail)
 }
@@ -303,13 +360,13 @@ function getPlayerPosition(index, total) {
   // We want to distribute them from Left-Bottom (160deg) to Right-Bottom (380deg)
   // going clockwise through Top (270deg).
   
-  const xRadius = 38; // Reduced to prevent overflow
-  const yRadius = 35; // Slightly reduced
+  const xRadius = 35; // Reduced to keep inside screen
+  const yRadius = 50; // Consistent
   const centerX = 50;
-  const centerY = 40; // Moved up slightly to give more room for player dashboard
+  const centerY = 60; // Slightly adjusted
 
-  const startAngle = 160;
-  const endAngle = 380;
+  const startAngle = 180;
+  const endAngle = 360;
   const range = endAngle - startAngle;
   
   let angle;
@@ -481,6 +538,46 @@ function getCharacterImage(name) {
 function getRoleImage(role) {
   if (!role) return '';
   return `/images/roles/${role.toLowerCase()}.png`;
+}
+
+function getCardImage(type) {
+  const imageMap = {
+    'BANG': 'bang.png',
+    'MISSED': 'missed.png',
+    'BEER': 'beer.png',
+    'SALOON': 'saloon.png',
+    'STAGECOACH': 'stagecoach.png',
+    'WELLS_FARGO': 'wellsfargo.png',
+    'PANIC': 'panic.png',
+    'CAT_BALOU': 'catbalou.png',
+    'DUEL': 'duel.png',
+    'GATLING': 'gatling.png',
+    'INDIANS': 'indians.png',
+    'GENERAL_STORE': 'generalstore.png',
+    'BARREL': 'barrel.png',
+    'MUSTANG': 'mustang.png',
+    'SCOPE': 'scope.png',
+    'JAIL': 'jail.png',
+    'DYNAMITE': 'dinamite.png',
+    'VOLCANIC': 'volcanic.png',
+    'SCHOFIELD': 'schofield.png',
+    'REMINGTON': 'remington.png',
+    'REV_CARABINE': 'carabine.png',
+    'WINCHESTER': 'winchester.png'
+  }
+  const filename = imageMap[type] || 'bang.png'
+  return `/images/cards/${filename}`
+}
+
+function getWeaponRange(type) {
+  const ranges = {
+    'VOLCANIC': 1,
+    'SCHOFIELD': 2,
+    'REMINGTON': 3,
+    'REV_CARABINE': 4,
+    'WINCHESTER': 5
+  }
+  return ranges[type] || 1
 }
 
 function getFanStyle(index, total, isSelected) {

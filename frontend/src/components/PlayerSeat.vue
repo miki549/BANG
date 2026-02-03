@@ -1,6 +1,6 @@
 <template>
   <div
-    class="player-board absolute select-none transition-all duration-300"
+    class="player-board absolute select-none transition-all duration-300 hover:z-[60]"
     :class="{
       'z-30': isCurrentTurn || isTargetable,
       'z-10': !isCurrentTurn && !isTargetable,
@@ -32,7 +32,7 @@
       <!-- Header: Name & Stats -->
       <div class="flex justify-between items-center px-2 py-1 bg-black/40 border-b border-amber-800/30">
         <!-- Name (Left) -->
-        <div class="text-left font-bold text-western-sand text-shadow-sm truncate text-xs">
+        <div class="text-left font-bold text-western-sand text-shadow-sm truncate text-sm">
           {{ player.name }}
         </div>
         
@@ -55,11 +55,12 @@
       </div>
 
       <!-- Slots Row -->
-      <div class="flex h-24">
+      <div class="flex h-32">
         <!-- LEFT: Role Card -->
-        <div class="w-16 h-full border-r border-amber-800/50 bg-stone-800 relative flex-shrink-0">
-           <div class="w-full h-full overflow-hidden relative"
-                :class="player.role ? '' : 'bg-stone-700 pattern-diagonal-stripes'">
+        <div class="w-24 h-full border-r border-amber-800/50 bg-stone-800 relative flex-shrink-0 z-10 hover:z-50">
+           <div class="w-full h-full overflow-visible relative transition-transform duration-300 hover:scale-125 cursor-help origin-center shadow-lg"
+                :class="player.role ? '' : 'bg-stone-700 pattern-diagonal-stripes'"
+                @wheel="handleWheel($event, { imageSrc: getRoleImage(player.role), title: player.role })">
               <img
                  v-if="player.role"
                  :src="getRoleImage(player.role)"
@@ -74,9 +75,10 @@
         </div>
 
         <!-- CENTER: Character (Shrunk) -->
-        <div class="w-16 h-full relative flex flex-col bg-stone-800 overflow-hidden group border-r border-amber-800/50">
+        <div class="w-24 h-full relative flex flex-col bg-stone-800 overflow-visible group border-r border-amber-800/50 z-10 hover:z-50">
            <!-- Character Image -->
-           <div class="w-full h-full relative p-1">
+           <div class="w-full h-full relative p-1 transition-transform duration-300 group-hover:scale-125 cursor-help origin-center shadow-lg bg-stone-800"
+                @wheel="handleWheel($event, { imageSrc: getCharacterImage(player.characterName), title: player.characterName })">
                <img
                  v-if="player.characterName"
                  :src="getCharacterImage(player.characterName)"
@@ -88,23 +90,19 @@
         </div>
 
         <!-- RIGHT: Blue Cards (Vertical Stack) -->
-        <div class="w-16 h-full border-l border-amber-800/50 bg-stone-800/50 relative flex-shrink-0 flex flex-col overflow-visible z-20 group/stack">
+        <div class="w-24 h-full border-l border-amber-800/50 bg-stone-800/50 relative flex-shrink-0 flex flex-col overflow-visible z-20 group/stack">
             <div class="relative w-full h-full flex flex-col items-center justify-start">
-               <div class="flex flex-col items-center -space-y-20 group-hover/stack:-space-y-12 transition-all duration-300 w-full">
+               <div class="flex flex-col items-center -space-y-24 group-hover/stack:-space-y-16 transition-all duration-300 w-full">
                   <div v-for="(card, index) in tableCards" :key="card.id || index"
-                       class="w-full h-24 flex-shrink-0 relative group/card"
+                       class="w-full h-32 flex-shrink-0 relative group/card"
                        :style="{ zIndex: index }">
                        
-                     <div class="w-full h-full rounded overflow-hidden shadow-md relative transition-all duration-300 ease-out group-hover/card:!z-[100] group-hover/card:scale-[1.7] group-hover/card:-translate-x-16 group-hover/card:translate-y-4 origin-center cursor-help delay-75 group-hover/card:delay-0"
-                          :title="card.type">
+                     <div class="w-full h-full rounded overflow-hidden shadow-md relative transition-all duration-300 ease-out group-hover/card:!z-[100] group-hover/card:scale-[1.5] group-hover/card:-translate-x-24 group-hover/card:translate-y-4 origin-center cursor-help delay-75 group-hover/card:delay-0"
+                          :title="card.type"
+                          @wheel="handleWheel($event, { imageSrc: getCardImage(card.type), title: card.type })">
                        
                        <img :src="getCardImage(card.type)" class="w-full h-full object-contain" />
                        
-                       <!-- Weapon Range Badge -->
-                       <div v-if="card.isWeapon" class="absolute bottom-0 right-0 bg-stone-900/90 text-[0.6rem] text-white px-1 rounded-tl">
-                          {{ getWeaponRange(card.type) }}
-                       </div>
-
                        <!-- Tooltip -->
                        <div class="absolute right-full mr-2 top-1/2 -translate-y-1/2 hidden group-hover/card:block bg-black/90 text-white text-[0.6rem] px-2 py-1 rounded whitespace-nowrap z-[110] border border-western-gold/50 shadow-lg pointer-events-none">
                            {{ card.type }}
@@ -146,7 +144,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['select'])
+const emit = defineEmits(['select', 'inspect'])
 
 const positionStyle = computed(() => ({
   left: `${props.position.x}%`,
@@ -212,6 +210,13 @@ function getCharacterImage(name) {
 function getRoleImage(role) {
   if (!role) return '';
   return `/images/roles/${role.toLowerCase()}.png`;
+}
+
+function handleWheel(event, data) {
+  if (event.deltaY < 0) { // Scroll UP
+    event.preventDefault()
+    emit('inspect', data)
+  }
 }
 
 function getCardImage(type) {

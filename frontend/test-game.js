@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer';
 
 const FRONTEND_URL = 'http://localhost:5173';
-const BOT_NAMES = ['Billy', 'Rose', 'Lucky', 'Jesse', 'Bart', 'Sid'];
+const BOT_NAMES = ['Billy', 'Rose', 'Lucky'];
 
 async function main() {
   console.log('🤠 BANG! Automated Game Launcher (Multi-Tab) 🤠');

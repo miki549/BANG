@@ -145,6 +145,7 @@ public class GameService {
                 Card card = state.drawCard();
                 if (card != null) {
                     player.addCardToHand(card);
+                    broadcastEvent(roomId, GameEvent.cardDrawn(player.getId(), player.getName()));
                 }
             }
         }
@@ -161,7 +162,7 @@ public class GameService {
         if (player == null) return;
 
         // Check if it's this player's turn (unless reacting)
-        if (state.getPhase() != GamePhase.REACTION_PHASE && 
+        if (state.getPhase() != GamePhase.REACTION_PHASE &&
             !player.getId().equals(state.getCurrentPlayer().getId())) {
             return;
         }
@@ -171,9 +172,9 @@ public class GameService {
 
         Player target = targetPlayerId != null ? state.getPlayerById(targetPlayerId) : null;
 
-        boolean played = processCardPlay(state, player, card, target);
+        List<GameEvent> sideEffects = processCardPlay(state, player, card, target);
         
-        if (played) {
+        if (sideEffects != null) {
             player.removeCardFromHand(card);
             
             if (card.isBrownCard()) {
@@ -190,7 +191,7 @@ public class GameService {
                 }
             }
 
-            // Broadcast event
+            // 1. Broadcast played event (FIRST)
             GameEvent event = GameEvent.cardPlayed(
                     player.getId(), player.getName(),
                     target != null ? target.getId() : null,
@@ -198,13 +199,18 @@ public class GameService {
                     card.getType().name(), card.getId()
             );
             broadcastEvent(roomId, event);
+
+            // 2. Broadcast side effect events (SECOND)
+            for (GameEvent effect : sideEffects) {
+                broadcastEvent(roomId, effect);
+            }
         }
 
         checkGameEnd(state);
         broadcastGameState(roomId);
     }
 
-    private boolean processCardPlay(GameState state, Player player, Card card, Player target) {
+    private List<GameEvent> processCardPlay(GameState state, Player player, Card card, Player target) {
         switch (card.getType()) {
             case BANG:
                 return processBang(state, player, card, target);
@@ -238,20 +244,20 @@ public class GameService {
             case REMINGTON:
             case REV_CARABINE:
             case WINCHESTER:
-                return true; // Blue cards just need to be played
+                return new ArrayList<>(); // Blue cards just need to be played
             case JAIL:
                 return processJail(state, player, target);
             case DYNAMITE:
-                return true; // Goes into play
+                return new ArrayList<>(); // Goes into play
             default:
-                return false;
+                return null;
         }
     }
 
-    private boolean processBang(GameState state, Player player, Card card, Player target) {
-        if (target == null || !target.isAlive()) return false;
-        if (!state.canTarget(player, target)) return false;
-        if (!player.canPlayBang()) return false;
+    private List<GameEvent> processBang(GameState state, Player player, Card card, Player target) {
+        if (target == null || !target.isAlive()) return null;
+        if (!state.canTarget(player, target)) return null;
+        if (!player.canPlayBang()) return null;
 
         player.setBangsPlayedThisTurn(player.getBangsPlayedThisTurn() + 1);
 
@@ -268,14 +274,14 @@ public class GameService {
         }
         state.setMissedCardsRequired(missedRequired);
 
-        return true;
+        return new ArrayList<>();
     }
 
-    private boolean processMissed(GameState state, Player player, Card card) {
-        if (state.getPhase() != GamePhase.REACTION_PHASE) return false;
-        if (!player.getId().equals(state.getPendingActionPlayerId())) return false;
+    private List<GameEvent> processMissed(GameState state, Player player, Card card) {
+        if (state.getPhase() != GamePhase.REACTION_PHASE) return null;
+        if (!player.getId().equals(state.getPendingActionPlayerId())) return null;
         if (!"BANG".equals(state.getPendingActionType()) && !"GATLING".equals(state.getPendingActionType()) && !"INDIANS".equals(state.getPendingActionType())) {
-            return false;
+            return null;
         }
 
         int remaining = state.getMissedCardsRequired() - 1;
@@ -286,81 +292,99 @@ public class GameService {
             clearPendingAction(state);
         }
 
-        return true;
+        return new ArrayList<>();
     }
 
-    private boolean processBeer(GameState state, Player player) {
+    private List<GameEvent> processBeer(GameState state, Player player) {
         // Beer has no effect with only 2 players
-        if (state.getAlivePlayerCount() <= 2) return false;
+        if (state.getAlivePlayerCount() <= 2) return null;
         
         if (player.getHealth() < player.getMaxHealth()) {
             player.heal(1);
             
+            List<GameEvent> events = new ArrayList<>();
             // Trigger Suzy Lafayette ability
             if (player.getCharacter() == CharacterType.SUZY_LAFAYETTE && player.getHand().isEmpty()) {
                 Card drawn = state.drawCard();
-                if (drawn != null) player.addCardToHand(drawn);
+                if (drawn != null) {
+                    player.addCardToHand(drawn);
+                    events.add(GameEvent.cardDrawn(player.getId(), player.getName()));
+                }
             }
             
-            return true;
+            return events;
         }
-        return false;
+        return null;
     }
 
-    private boolean processPanic(GameState state, Player player, Player target) {
-        if (target == null || !target.isAlive()) return false;
-        if (state.calculateDistance(player, target) > 1) return false;
+    private List<GameEvent> processPanic(GameState state, Player player, Player target) {
+        if (target == null || !target.isAlive()) return null;
+        if (state.calculateDistance(player, target) > 1) return null;
         
+        List<GameEvent> events = new ArrayList<>();
         // Steal a random card from target's hand
         if (!target.getHand().isEmpty()) {
             int index = new Random().nextInt(target.getHand().size());
             Card stolen = target.getHand().remove(index);
             player.addCardToHand(stolen);
+            events.add(GameEvent.cardStolen(target.getId(), target.getName(), player.getId(), player.getName(), stolen.getType().name()));
         } else if (!target.getInPlay().isEmpty()) {
             // Or take a card in play
             Card stolen = target.getInPlay().remove(0);
             player.addCardToHand(stolen);
+            events.add(GameEvent.cardStolen(target.getId(), target.getName(), player.getId(), player.getName(), stolen.getType().name()));
         } else {
-            return false;
+            return null;
         }
-        return true;
+        return events;
     }
 
-    private boolean processCatBalou(GameState state, Player player, Player target) {
-        if (target == null || !target.isAlive()) return false;
+    private List<GameEvent> processCatBalou(GameState state, Player player, Player target) {
+        if (target == null || !target.isAlive()) return null;
         
+        List<GameEvent> events = new ArrayList<>();
         // Discard a random card from target's hand or a card in play
         if (!target.getHand().isEmpty()) {
             int index = new Random().nextInt(target.getHand().size());
             Card discarded = target.getHand().remove(index);
             state.discardCard(discarded);
+            events.add(GameEvent.cardDiscarded(target.getId(), target.getName(), discarded.getType().name()));
         } else if (!target.getInPlay().isEmpty()) {
             Card discarded = target.getInPlay().remove(0);
             state.discardCard(discarded);
+            events.add(GameEvent.cardDiscarded(target.getId(), target.getName(), discarded.getType().name()));
         } else {
-            return false;
+            return null;
         }
-        return true;
+        return events;
     }
 
-    private boolean processStagecoach(GameState state, Player player) {
+    private List<GameEvent> processStagecoach(GameState state, Player player) {
+        List<GameEvent> events = new ArrayList<>();
         for (int i = 0; i < 2; i++) {
             Card card = state.drawCard();
-            if (card != null) player.addCardToHand(card);
+            if (card != null) {
+                player.addCardToHand(card);
+                events.add(GameEvent.cardDrawn(player.getId(), player.getName()));
+            }
         }
-        return true;
+        return events;
     }
 
-    private boolean processWellsFargo(GameState state, Player player) {
+    private List<GameEvent> processWellsFargo(GameState state, Player player) {
+        List<GameEvent> events = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             Card card = state.drawCard();
-            if (card != null) player.addCardToHand(card);
+            if (card != null) {
+                player.addCardToHand(card);
+                events.add(GameEvent.cardDrawn(player.getId(), player.getName()));
+            }
         }
-        return true;
+        return events;
     }
 
-    private boolean processDuel(GameState state, Player player, Player target) {
-        if (target == null || !target.isAlive()) return false;
+    private List<GameEvent> processDuel(GameState state, Player player, Player target) {
+        if (target == null || !target.isAlive()) return null;
         
         state.setPhase(GamePhase.REACTION_PHASE);
         state.setPendingActionPlayerId(target.getId());
@@ -368,10 +392,10 @@ public class GameService {
         state.setPendingActionType("DUEL");
         state.setMissedCardsRequired(1);
         
-        return true;
+        return new ArrayList<>();
     }
 
-    private boolean processGatling(GameState state, Player player) {
+    private List<GameEvent> processGatling(GameState state, Player player) {
         // Hits all other players
         for (Player target : state.getAlivePlayers()) {
             if (!target.getId().equals(player.getId())) {
@@ -384,10 +408,10 @@ public class GameService {
                 break;
             }
         }
-        return true;
+        return new ArrayList<>();
     }
 
-    private boolean processIndians(GameState state, Player player) {
+    private List<GameEvent> processIndians(GameState state, Player player) {
         // All other players must play BANG or lose 1 HP
         for (Player target : state.getAlivePlayers()) {
             if (!target.getId().equals(player.getId())) {
@@ -399,19 +423,19 @@ public class GameService {
                 break;
             }
         }
-        return true;
+        return new ArrayList<>();
     }
 
-    private boolean processSaloon(GameState state) {
+    private List<GameEvent> processSaloon(GameState state) {
         for (Player p : state.getAlivePlayers()) {
             if (p.getHealth() < p.getMaxHealth()) {
                 p.heal(1);
             }
         }
-        return true;
+        return new ArrayList<>();
     }
 
-    private boolean processGeneralStore(GameState state, Player player) {
+    private List<GameEvent> processGeneralStore(GameState state, Player player) {
         // Draw cards equal to number of alive players
         List<String> storeCards = new ArrayList<>();
         for (int i = 0; i < state.getAlivePlayerCount(); i++) {
@@ -421,13 +445,13 @@ public class GameService {
             }
         }
         state.setGeneralStoreCards(storeCards);
-        return true;
+        return new ArrayList<>();
     }
 
-    private boolean processJail(GameState state, Player player, Player target) {
-        if (target == null || !target.isAlive()) return false;
-        if (target.isSheriff()) return false; // Can't jail the Sheriff
-        return true;
+    private List<GameEvent> processJail(GameState state, Player player, Player target) {
+        if (target == null || !target.isAlive()) return null;
+        if (target.isSheriff()) return null; // Can't jail the Sheriff
+        return new ArrayList<>();
     }
 
     public void passTurn(String roomId, String playerId) {
@@ -468,6 +492,7 @@ public class GameService {
 
         player.removeCardFromHand(card);
         state.discardCard(card);
+        broadcastEvent(roomId, GameEvent.cardDiscarded(player.getId(), player.getName(), card.getType().name()));
 
         if (player.getHand().size() <= player.getHandLimit()) {
             endTurn(state);
@@ -539,11 +564,18 @@ public class GameService {
 
     private void applyDamage(GameState state, Player target, int amount, Player source) {
         target.takeDamage(amount);
+        
+        broadcastEvent(state.getRoomId(), GameEvent.playerDamaged(
+                target.getId(), target.getName(), amount, target.getHealth()
+        ));
 
         // Bart Cassidy draws a card when hit
         if (target.getCharacter() == CharacterType.BART_CASSIDY && target.isAlive()) {
             Card drawn = state.drawCard();
-            if (drawn != null) target.addCardToHand(drawn);
+            if (drawn != null) {
+                target.addCardToHand(drawn);
+                broadcastEvent(state.getRoomId(), GameEvent.cardDrawn(target.getId(), target.getName()));
+            }
         }
 
         // El Gringo steals from attacker
@@ -551,26 +583,35 @@ public class GameService {
             int index = new Random().nextInt(source.getHand().size());
             Card stolen = source.getHand().remove(index);
             target.addCardToHand(stolen);
+            broadcastEvent(state.getRoomId(), GameEvent.cardStolen(source.getId(), source.getName(), target.getId(), target.getName(), stolen.getType().name()));
         }
 
         if (!target.isAlive()) {
             handlePlayerDeath(state, target, source);
         }
-
-        broadcastEvent(state.getRoomId(), GameEvent.playerDamaged(
-                target.getId(), target.getName(), amount, target.getHealth()
-        ));
     }
 
     private void handlePlayerDeath(GameState state, Player eliminated, Player killer) {
+        broadcastEvent(state.getRoomId(), GameEvent.playerEliminated(
+                eliminated.getId(), eliminated.getName(), eliminated.getRole().name()
+        ));
+
         // Vulture Sam takes all cards
         for (Player p : state.getAlivePlayers()) {
             if (p.getCharacter() == CharacterType.VULTURE_SAM) {
+                // Vulture Sam takes all cards
+                int cardCount = eliminated.getHand().size() + eliminated.getInPlay().size() + (eliminated.getWeapon() != null ? 1 : 0);
+                
                 p.getHand().addAll(eliminated.getHand());
                 p.getHand().addAll(eliminated.getInPlay());
                 if (eliminated.getWeapon() != null) {
                     p.getHand().add(eliminated.getWeapon());
                 }
+                
+                for(int i=0; i<cardCount; i++) {
+                     broadcastEvent(state.getRoomId(), GameEvent.cardStolen(eliminated.getId(), eliminated.getName(), p.getId(), p.getName(), "UNKNOWN"));
+                }
+                
                 eliminated.getHand().clear();
                 eliminated.getInPlay().clear();
                 eliminated.setWeapon(null);
@@ -594,7 +635,10 @@ public class GameService {
                 // Reward: draw 3 cards
                 for (int i = 0; i < 3; i++) {
                     Card card = state.drawCard();
-                    if (card != null) killer.addCardToHand(card);
+                    if (card != null) {
+                        killer.addCardToHand(card);
+                        broadcastEvent(state.getRoomId(), GameEvent.cardDrawn(killer.getId(), killer.getName()));
+                    }
                 }
             } else if (eliminated.getRole() == Role.DEPUTY && killer.isSheriff()) {
                 // Sheriff kills deputy: discard all cards
@@ -608,10 +652,6 @@ public class GameService {
                 killer.setWeapon(null);
             }
         }
-
-        broadcastEvent(state.getRoomId(), GameEvent.playerEliminated(
-                eliminated.getId(), eliminated.getName(), eliminated.getRole().name()
-        ));
     }
 
     private void clearPendingAction(GameState state) {

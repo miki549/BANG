@@ -4,6 +4,8 @@
     :class="{
       'z-30': isCurrentTurn || isTargetable,
       'z-10': !isCurrentTurn && !isTargetable,
+      'current-turn': isCurrentTurn,
+      'pending-action': isPendingAction,
       'scale-105': isCurrentTurn,
       'grayscale opacity-70': !player.alive
     }"
@@ -12,18 +14,8 @@
     @click="isTargetable && $emit('select', player)"
   >
     <!-- Target Overlay -->
-    <div v-if="isTargetable" 
+    <div v-if="isTargetable"
          class="absolute -inset-2 border-4 border-red-500 rounded-lg animate-pulse z-50 pointer-events-none shadow-[0_0_20px_rgba(239,68,68,0.6)]">
-    </div>
-
-    <!-- Turn Indicator -->
-    <div v-if="isCurrentTurn" 
-         class="absolute -inset-2 border-4 border-western-gold rounded-lg z-0 shadow-[0_0_20px_rgba(218,165,32,0.4)]">
-    </div>
-
-    <!-- Pending Action Indicator -->
-    <div v-if="isPendingAction" 
-         class="absolute -inset-2 border-4 border-yellow-500 rounded-lg animate-pulse z-50 pointer-events-none">
     </div>
 
     <!-- Main Board Area -->
@@ -109,6 +101,7 @@
                        :style="{ zIndex: index }">
                        
                      <div class="h-full aspect-[2/3] rounded overflow-hidden shadow-md relative transition-all duration-300 ease-out group-hover/card:!z-[100] group-hover/card:scale-[1.5] group-hover/card:-translate-x-24 group-hover/card:translate-y-4 origin-center cursor-help delay-75 group-hover/card:delay-0"
+                          :class="{ 'opacity-0': animatingCardIds.has(card.id) }"
                           :title="card.type"
                           @wheel="handleWheel($event, { imageSrc: getCardImage(card.type), title: card.type, suit: card.suit, value: card.value })">
                        
@@ -141,6 +134,9 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { useAnimationQueue } from '../composables/useAnimationQueue'
+
+const { animatingCardIds } = useAnimationQueue()
 
 const props = defineProps({
   player: {

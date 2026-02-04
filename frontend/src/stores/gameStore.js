@@ -33,7 +33,18 @@ export const useGameStore = defineStore('game', () => {
 
   const otherPlayers = computed(() => {
     if (!gameState.value || !playerId.value) return []
-    return gameState.value.players?.filter(p => p.id !== playerId.value) || []
+    const allPlayers = gameState.value.players || []
+    const myIndex = allPlayers.findIndex(p => p.id === playerId.value)
+    
+    if (myIndex === -1) return allPlayers.filter(p => p.id !== playerId.value)
+
+    const reordered = []
+    // Start from the player AFTER me, and wrap around
+    for (let i = 1; i < allPlayers.length; i++) {
+      const index = (myIndex + i) % allPlayers.length
+      reordered.push(allPlayers[index])
+    }
+    return reordered
   })
 
   const needsToRespond = computed(() => {

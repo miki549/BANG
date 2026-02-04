@@ -11,7 +11,7 @@ export function useWebSocket() {
   function connect() {
     return new Promise((resolve, reject) => {
       const stompClient = new Client({
-        webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+        webSocketFactory: () => new SockJS('/ws'), // Use relative path to allow proxying
         connectHeaders: {},
         debug: (str) => {
           if (str.includes('CONNECTED') || str.includes('ERROR')) {

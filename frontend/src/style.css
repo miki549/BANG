@@ -99,10 +99,47 @@ body {
   }
 
   .player-board.current-turn {
-    @apply border-yellow-500;
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.6), inset 0 0 20px rgba(0,0,0,0.8);
+    /* Border handled by pseudo-element */
+    border-color: transparent;
     transform: scale(1.02);
     z-index: 10;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  }
+
+  .player-board.current-turn::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 10px;
+    background: linear-gradient(60deg, #8B4513, #DAA520, #FFD700, #DAA520, #8B4513);
+    background-size: 300% 300%;
+    animation: goldFlow 2s ease infinite;
+    z-index: -1;
+    box-shadow: 0 0 25px rgba(218, 165, 32, 0.8);
+  }
+
+  @keyframes goldFlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .player-board.pending-action {
+    border-color: transparent;
+    z-index: 20; /* Higher priority than turn */
+    box-shadow: 0 0 20px rgba(220, 20, 60, 0.5);
+  }
+
+  .player-board.pending-action::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 10px;
+    background: linear-gradient(60deg, #8B0000, #FF0000, #FF4444, #FF0000, #8B0000);
+    background-size: 300% 300%;
+    animation: goldFlow 1s ease infinite; /* Faster flow for urgency */
+    z-index: -1;
+    box-shadow: 0 0 25px rgba(255, 0, 0, 0.8);
   }
 
   .player-board.targetable {

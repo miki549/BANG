@@ -62,6 +62,39 @@ public class GameEvent {
                 .build();
     }
 
+    public static GameEvent cardDrawn(String playerId, String playerName) {
+        return GameEvent.builder()
+                .type("CARD_DRAWN")
+                .targetPlayerId(playerId)
+                .targetPlayerName(playerName)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+
+    public static GameEvent cardStolen(String sourcePlayerId, String sourcePlayerName,
+                                       String targetPlayerId, String targetPlayerName,
+                                       String cardType) {
+        return GameEvent.builder()
+                .type("CARD_STOLEN")
+                .sourcePlayerId(sourcePlayerId)
+                .sourcePlayerName(sourcePlayerName)
+                .targetPlayerId(targetPlayerId)
+                .targetPlayerName(targetPlayerName)
+                .cardType(cardType)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+
+    public static GameEvent cardDiscarded(String playerId, String playerName, String cardType) {
+        return GameEvent.builder()
+                .type("CARD_DISCARDED")
+                .sourcePlayerId(playerId)
+                .sourcePlayerName(playerName)
+                .cardType(cardType)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+
     @Data
     @AllArgsConstructor
     public static class DamageData {

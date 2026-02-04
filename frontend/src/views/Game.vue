@@ -23,18 +23,20 @@
       <div class="game-center absolute top-[50%] left-[50%] transform -translate-x-1/2 -translate-y-1/2
                   flex items-center justify-center gap-8">
         <!-- Draw Pile -->
-        <div class="deck-pile">
+        <div class="deck-pile" data-deck-pile>
           <div class="card-game card-back flex items-center justify-center">
             <span class="text-western-sand font-bold">{{ drawPileSize }}</span>
           </div>
         </div>
 
         <!-- Discard Pile -->
-        <div v-if="topDiscardCard" class="relative">
-          <CardComponent :card="topDiscardCard" :disabled="true" />
-        </div>
-        <div v-else class="card-game opacity-30 flex items-center justify-center">
-          <span class="text-western-dark/50">Discard</span>
+        <div class="relative discard-pile-container" data-discard-pile>
+          <div v-if="topDiscardCard" class="relative">
+            <CardComponent :card="topDiscardCard" :disabled="true" />
+          </div>
+          <div v-else class="card-game opacity-30 flex items-center justify-center">
+            <span class="text-western-dark/50">Discard</span>
+          </div>
         </div>
       </div>
 
@@ -75,7 +77,8 @@
         <div class="flex items-end gap-6 w-full max-w-7xl justify-center">
             <!-- My Player Board -->
             <div class="player-board relative transform-none w-auto flex-shrink-0 mb-24 ml-80"
-                 :class="{ 'current-turn': isMyTurn }">
+                 :class="{ 'current-turn': isMyTurn, 'pending-action': needsToRespond }"
+                 :data-player-id="currentPlayer?.id">
               
               <div class="relative bg-stone-900/95 border-2 border-amber-800 rounded-lg shadow-xl overflow-visible w-auto flex flex-col">
                   <!-- Header: Name & Stats -->
@@ -150,6 +153,7 @@
                                    class="w-full h-32 flex-shrink-0 relative group/card flex justify-center"
                                    :style="{ zIndex: index }">
                                  <div class="h-full aspect-[2/3] rounded overflow-hidden shadow-md relative transition-all duration-300 ease-out group-hover/card:!z-[100] group-hover/card:scale-[1.5] group-hover/card:-translate-x-24 group-hover/card:translate-y-4 origin-center cursor-help delay-75 group-hover/card:delay-0"
+                                      :class="{ 'opacity-0': animatingCardIds.has(card.id) }"
                                       :title="card.type"
                                       @wheel="handleCardWheel($event, { imageSrc: getCardImage(card.type), title: card.type, suit: card.suit, value: card.value })">
                                    <img :src="getCardImage(card.type)" class="w-full h-full object-contain" />
@@ -267,6 +271,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../stores/gameStore'
+import { useAnimationQueue } from '../composables/useAnimationQueue'
 import CardComponent from '../components/CardComponent.vue'
 import PlayerSeat from '../components/PlayerSeat.vue'
 import HealthBar from '../components/HealthBar.vue'
@@ -274,6 +279,7 @@ import HealthBar from '../components/HealthBar.vue'
 const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
+const { animatingCardIds } = useAnimationQueue()
 
 const selectedCard = ref(null)
 const selectedTarget = ref(null)

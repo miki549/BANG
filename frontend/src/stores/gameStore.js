@@ -5,7 +5,7 @@ import { useAnimationQueue } from '../composables/useAnimationQueue'
 import { useSoundManager } from '../composables/useSoundManager'
 
 export const useGameStore = defineStore('game', () => {
-  const { connect, disconnect, send, connected } = useWebSocket()
+  const { connect, disconnect, send, subscribeToRoom, connected } = useWebSocket()
   const { queueAnimation, processQueue } = useAnimationQueue()
   const { playSound } = useSoundManager()
 
@@ -65,6 +65,10 @@ export const useGameStore = defineStore('game', () => {
       if (storedPlayerName) {
         playerName.value = storedPlayerName
       }
+      
+      // Resubscribe to room topics
+      subscribeToRoom(storedRoomId, storedPlayerId)
+
       send('/app/room/reconnect', {
         type: 'JOIN', // Reconnect is a type of join
         roomId: storedRoomId,
@@ -120,10 +124,11 @@ export const useGameStore = defineStore('game', () => {
     playSound('draw')
   }
 
-  function playCard(cardId, targetPlayerId = null) {
+  function playCard(cardId, targetPlayerId = null, targetCardId = null) {
     send('/app/game/play', {
       cardId,
-      targetPlayerId
+      targetPlayerId,
+      targetCardId
     })
     playSound('play_card')
   }
@@ -211,9 +216,16 @@ export const useGameStore = defineStore('game', () => {
 
     // Queue animation before state update
     const oldState = gameState.value
-    gameState.value = message
+    
+    // Defer state update to sync with animations
+    queueAnimation({
+      type: 'STATE_UPDATE',
+      updateFn: () => {
+        gameState.value = message
+      }
+    })
 
-    console.log('Game state updated:', {
+    console.log('Game state updated (queued):', {
       phase: message.phase,
       currentPlayerId: message.currentPlayerId,
       players: message.players?.length,

@@ -251,6 +251,57 @@
       </div>
     </div>
 
+    <!-- Target Card Selection Overlay -->
+    <div v-if="selectingTargetCardPlayerId"
+         class="fixed inset-0 bg-black/80 flex items-center justify-center z-[160] p-8">
+      <div class="bg-western-dark border-4 border-western-gold rounded-2xl p-8 max-w-4xl w-full flex flex-col items-center">
+        <h2 class="font-western text-3xl text-western-gold mb-8">
+          {{ selectedCard?.type === 'PANIC' ? 'Steal from' : 'Discard from' }} {{ targetPlayerForSelection?.name }}
+        </h2>
+
+        <div class="flex gap-12 items-start justify-center flex-wrap">
+           <!-- Hand Option -->
+           <div v-if="targetPlayerForSelection?.handSize > 0"
+                class="flex flex-col items-center gap-4 cursor-pointer group"
+                @click="handleTargetCardSelection(null)"> <!-- null means random/hand -->
+              <div class="w-32 h-48 card-game card-back shadow-xl group-hover:scale-105 transition-transform border-4 border-transparent group-hover:border-western-gold/50 rounded-lg">
+                 <!-- Badge showing count -->
+                 <div class="absolute top-[-10px] right-[-10px] bg-red-600 text-white font-bold w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-md">
+                   {{ targetPlayerForSelection?.handSize }}
+                 </div>
+              </div>
+              <span class="text-western-sand text-xl font-bold group-hover:text-western-gold">Hand (Random)</span>
+           </div>
+
+           <!-- In Play Options -->
+           <div v-if="targetPlayerForSelection?.cardsInPlay?.length > 0 || targetPlayerForSelection?.weapon"
+                class="flex flex-col items-center gap-4">
+              <div class="flex gap-4 flex-wrap justify-center">
+                 <!-- Weapon -->
+                 <div v-if="targetPlayerForSelection?.weapon"
+                      class="relative cursor-pointer group"
+                      @click="handleTargetCardSelection(targetPlayerForSelection.weapon.id)">
+                     <CardComponent :card="{ ...targetPlayerForSelection.weapon, isWeapon: true }" class="w-32 h-48 transform group-hover:scale-105 transition-transform !shadow-xl hover:ring-4 ring-western-gold/50 rounded-lg" />
+                     <span class="absolute -bottom-8 left-0 right-0 text-center text-western-sand font-bold group-hover:text-western-gold">Weapon</span>
+                 </div>
+                 
+                 <!-- Other In Play Cards -->
+                 <div v-for="card in targetPlayerForSelection.cardsInPlay" :key="card.id"
+                      class="relative cursor-pointer group"
+                      @click="handleTargetCardSelection(card.id)">
+                     <CardComponent :card="card" class="w-32 h-48 transform group-hover:scale-105 transition-transform !shadow-xl hover:ring-4 ring-western-gold/50 rounded-lg" />
+                 </div>
+              </div>
+              <span class="text-western-sand text-xl font-bold mt-2">Cards in Play</span>
+           </div>
+        </div>
+
+        <button @click="cancelTargetCardSelection" class="btn-danger mt-12 px-8 py-2">
+           Cancel
+        </button>
+      </div>
+    </div>
+
     <!-- Game Over Overlay -->
     <div v-if="isGameOver"
          class="fixed inset-0 bg-black/80 flex items-center justify-center z-[200]">
@@ -285,6 +336,7 @@ const selectedCard = ref(null)
 const selectedTarget = ref(null)
 const hoveredCardIndex = ref(-1)
 const inspectedCard = ref(null)
+const selectingTargetCardPlayerId = ref(null)
 const flashingIndices = ref(new Set())
 const flashingGreenIndices = ref(new Set())
 
@@ -299,6 +351,11 @@ const needsToRespond = computed(() => gameStore.needsToRespond)
 const drawPileSize = computed(() => gameState.value?.drawPileSize || 0)
 const topDiscardCard = computed(() => gameState.value?.topDiscardCard)
 const isGameOver = computed(() => gameState.value?.phase === 'GAME_OVER')
+
+const targetPlayerForSelection = computed(() => {
+  if (!selectingTargetCardPlayerId.value) return null
+  return gameState.value?.players?.find(p => p.id === selectingTargetCardPlayerId.value)
+})
 
 const currentTableCards = computed(() => {
   const player = currentPlayer.value
@@ -529,7 +586,39 @@ function handleCardClick(card) {
 function selectTarget(player) {
   if (!selectedCard.value || !canTargetPlayer(player)) return
   
+  const type = selectedCard.value.type
+  if (type === 'PANIC' || type === 'CAT_BALOU') {
+    const hasHand = (player.handSize || 0) > 0
+    const hasInPlay = (player.cardsInPlay?.length || 0) > 0 || !!player.weapon
+    
+    // If player has cards on table OR (has cards in hand AND on table), we must ask user to choose
+    // If player has ONLY cards in hand, we can default to random hand (or show UI for consistency, but consistency is better)
+    // Actually, user requirement says "choose from hand OR board". So always show UI if there's a choice.
+    // If only hand, random is the only option, but maybe show UI to confirm "Steal from Hand"?
+    // Let's show UI if there are any cards at all, to be safe and explicit.
+    
+    if (hasHand || hasInPlay) {
+       selectingTargetCardPlayerId.value = player.id
+       return
+    }
+  }
+
   gameStore.playCard(selectedCard.value.id, player.id)
+  selectedCard.value = null
+}
+
+function handleTargetCardSelection(targetCardId) {
+  if (!selectedCard.value || !selectingTargetCardPlayerId.value) return
+  
+  gameStore.playCard(selectedCard.value.id, selectingTargetCardPlayerId.value, targetCardId)
+  
+  // Cleanup
+  selectedCard.value = null
+  selectingTargetCardPlayerId.value = null
+}
+
+function cancelTargetCardSelection() {
+  selectingTargetCardPlayerId.value = null
   selectedCard.value = null
 }
 
@@ -541,6 +630,7 @@ function playSelectedCard(targetId = null) {
 
 function cancelSelection() {
   selectedCard.value = null
+  selectingTargetCardPlayerId.value = null
 }
 
 function drawCards() {

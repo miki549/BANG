@@ -9,6 +9,16 @@ const playerId = ref(null)
 
 export function useWebSocket() {
   function connect() {
+    if (client.value) {
+      try {
+        client.value.deactivate()
+      } catch (e) {
+        console.error('Error deactivating existing client:', e)
+      }
+      client.value = null
+      connected.value = false
+    }
+
     return new Promise((resolve, reject) => {
       const stompClient = new Client({
         webSocketFactory: () => new SockJS('/ws'), // Use relative path to allow proxying

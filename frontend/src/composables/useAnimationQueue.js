@@ -56,6 +56,10 @@ export function useAnimationQueue() {
         case 'CARD_DISCARDED':
           animateCardDiscarded(event, onResolve)
           break
+        case 'STATE_UPDATE':
+          if (event.updateFn) event.updateFn()
+          onResolve()
+          break
         default:
           onResolve()
       }
@@ -329,12 +333,27 @@ export function useAnimationQueue() {
             duration: 0.1
         })
     } else {
-        // For brown cards, just fade out from center (to discard)
-        timeline.to(floatingCard, {
-            opacity: 0,
-            scale: 0.8,
-            duration: 0.3
-        }, 'atCenter+=0.5') // Wait 0.5s at center
+        // For brown cards, move to discard pile
+        const discardEl = document.querySelector('[data-discard-pile]')
+        
+        if (discardEl) {
+            const discardRect = discardEl.getBoundingClientRect()
+            timeline.to(floatingCard, {
+                x: discardRect.left + discardRect.width / 2 - 48,
+                y: discardRect.top + discardRect.height / 2 - 72,
+                scale: 1,
+                rotation: (Math.random() - 0.5) * 30,
+                duration: 0.5,
+                ease: 'power2.inOut'
+            }, 'atCenter+=0.5')
+        } else {
+            // Fallback if discard pile not found
+            timeline.to(floatingCard, {
+                opacity: 0,
+                scale: 0.8,
+                duration: 0.3
+            }, 'atCenter+=0.5')
+        }
     }
   }
 

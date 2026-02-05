@@ -71,9 +71,9 @@ public class GameController {
             return;
         }
 
-        gameService.playCard(roomId, playerId, message.getCardId(), message.getTargetPlayerId());
-        log.debug("Player {} played card {} targeting {} in room {}", 
-                playerId, message.getCardId(), message.getTargetPlayerId(), roomId);
+        gameService.playCard(roomId, playerId, message.getCardId(), message.getTargetPlayerId(), message.getTargetCardId());
+        log.debug("Player {} played card {} targeting {} (card: {}) in room {}",
+                playerId, message.getCardId(), message.getTargetPlayerId(), message.getTargetCardId(), roomId);
     }
 
     @MessageMapping("/game/pass")

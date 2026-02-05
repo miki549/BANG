@@ -154,7 +154,7 @@ public class GameService {
         broadcastGameState(roomId);
     }
 
-    public void playCard(String roomId, String playerId, String cardId, String targetPlayerId) {
+    public void playCard(String roomId, String playerId, String cardId, String targetPlayerId, String targetCardId) {
         GameState state = games.get(roomId);
         if (state == null) return;
 
@@ -172,7 +172,7 @@ public class GameService {
 
         Player target = targetPlayerId != null ? state.getPlayerById(targetPlayerId) : null;
 
-        List<GameEvent> sideEffects = processCardPlay(state, player, card, target);
+        List<GameEvent> sideEffects = processCardPlay(state, player, card, target, targetCardId);
         
         if (sideEffects != null) {
             player.removeCardFromHand(card);
@@ -210,7 +210,7 @@ public class GameService {
         broadcastGameState(roomId);
     }
 
-    private List<GameEvent> processCardPlay(GameState state, Player player, Card card, Player target) {
+    private List<GameEvent> processCardPlay(GameState state, Player player, Card card, Player target, String targetCardId) {
         switch (card.getType()) {
             case BANG:
                 return processBang(state, player, card, target);
@@ -219,9 +219,9 @@ public class GameService {
             case BEER:
                 return processBeer(state, player);
             case PANIC:
-                return processPanic(state, player, target);
+                return processPanic(state, player, target, targetCardId);
             case CAT_BALOU:
-                return processCatBalou(state, player, target);
+                return processCatBalou(state, player, target, targetCardId);
             case STAGECOACH:
                 return processStagecoach(state, player);
             case WELLS_FARGO:
@@ -317,46 +317,87 @@ public class GameService {
         return null;
     }
 
-    private List<GameEvent> processPanic(GameState state, Player player, Player target) {
+    private List<GameEvent> processPanic(GameState state, Player player, Player target, String targetCardId) {
         if (target == null || !target.isAlive()) return null;
         if (state.calculateDistance(player, target) > 1) return null;
         
         List<GameEvent> events = new ArrayList<>();
-        // Steal a random card from target's hand
-        if (!target.getHand().isEmpty()) {
-            int index = new Random().nextInt(target.getHand().size());
-            Card stolen = target.getHand().remove(index);
-            player.addCardToHand(stolen);
-            events.add(GameEvent.cardStolen(target.getId(), target.getName(), player.getId(), player.getName(), stolen.getType().name()));
-        } else if (!target.getInPlay().isEmpty()) {
-            // Or take a card in play
-            Card stolen = target.getInPlay().remove(0);
-            player.addCardToHand(stolen);
-            events.add(GameEvent.cardStolen(target.getId(), target.getName(), player.getId(), player.getName(), stolen.getType().name()));
-        } else {
-            return null;
+        
+        Card stolen = null;
+
+        // Try to find specific card in play if ID provided
+        if (targetCardId != null) {
+            stolen = target.getInPlay().stream()
+                    .filter(c -> c.getId().equals(targetCardId))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (stolen != null) {
+                target.getInPlay().remove(stolen);
+            } else if (target.getWeapon() != null && target.getWeapon().getId().equals(targetCardId)) {
+                stolen = target.getWeapon();
+                target.setWeapon(null);
+            }
         }
-        return events;
+
+        // If no specific card targeted/found, try hand or fallback logic
+        if (stolen == null) {
+             if (!target.getHand().isEmpty()) {
+                 int index = new Random().nextInt(target.getHand().size());
+                 stolen = target.getHand().remove(index);
+             } else if (!target.getInPlay().isEmpty()) {
+                 stolen = target.getInPlay().remove(0);
+             }
+        }
+
+        if (stolen != null) {
+            player.addCardToHand(stolen);
+            events.add(GameEvent.cardStolen(target.getId(), target.getName(), player.getId(), player.getName(), stolen.getType().name()));
+            return events;
+        }
+
+        return null;
     }
 
-    private List<GameEvent> processCatBalou(GameState state, Player player, Player target) {
+    private List<GameEvent> processCatBalou(GameState state, Player player, Player target, String targetCardId) {
         if (target == null || !target.isAlive()) return null;
         
         List<GameEvent> events = new ArrayList<>();
-        // Discard a random card from target's hand or a card in play
-        if (!target.getHand().isEmpty()) {
-            int index = new Random().nextInt(target.getHand().size());
-            Card discarded = target.getHand().remove(index);
-            state.discardCard(discarded);
-            events.add(GameEvent.cardDiscarded(target.getId(), target.getName(), discarded.getType().name()));
-        } else if (!target.getInPlay().isEmpty()) {
-            Card discarded = target.getInPlay().remove(0);
-            state.discardCard(discarded);
-            events.add(GameEvent.cardDiscarded(target.getId(), target.getName(), discarded.getType().name()));
-        } else {
-            return null;
+        
+        Card discarded = null;
+
+        // Try to find specific card in play if ID provided
+        if (targetCardId != null) {
+            discarded = target.getInPlay().stream()
+                    .filter(c -> c.getId().equals(targetCardId))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (discarded != null) {
+                target.getInPlay().remove(discarded);
+            } else if (target.getWeapon() != null && target.getWeapon().getId().equals(targetCardId)) {
+                discarded = target.getWeapon();
+                target.setWeapon(null);
+            }
         }
-        return events;
+
+        // If no specific card targeted/found, try hand or fallback logic
+        if (discarded == null) {
+             if (!target.getHand().isEmpty()) {
+                 int index = new Random().nextInt(target.getHand().size());
+                 discarded = target.getHand().remove(index);
+             } else if (!target.getInPlay().isEmpty()) {
+                 discarded = target.getInPlay().remove(0);
+             }
+        }
+
+        if (discarded != null) {
+            state.discardCard(discarded);
+            events.add(GameEvent.cardDiscarded(target.getId(), target.getName(), discarded.getType().name()));
+            return events;
+        }
+
+        return null;
     }
 
     private List<GameEvent> processStagecoach(GameState state, Player player) {
@@ -535,6 +576,18 @@ public class GameService {
                 if (validResponse) {
                     player.removeCardFromHand(card);
                     state.discardCard(card);
+
+                    // Broadcast played event for the response card
+                    String pendingSourceId = state.getPendingActionSourcePlayerId();
+                    Player sourcePlayer = pendingSourceId != null ? state.getPlayerById(pendingSourceId) : null;
+                    
+                    GameEvent event = GameEvent.cardPlayed(
+                            player.getId(), player.getName(),
+                            pendingSourceId,
+                            sourcePlayer != null ? sourcePlayer.getName() : null,
+                            card.getType().name(), card.getId()
+                    );
+                    broadcastEvent(roomId, event);
                     
                     int remaining = state.getMissedCardsRequired() - 1;
                     state.setMissedCardsRequired(remaining);

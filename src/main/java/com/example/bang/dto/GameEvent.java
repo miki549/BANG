@@ -86,11 +86,27 @@ public class GameEvent {
     }
 
     public static GameEvent cardDiscarded(String playerId, String playerName, String cardType) {
+        return cardDiscarded(playerId, playerName, cardType, null);
+    }
+
+    public static GameEvent cardDiscarded(String playerId, String playerName, String cardType, String cardId) {
         return GameEvent.builder()
                 .type("CARD_DISCARDED")
                 .sourcePlayerId(playerId)
                 .sourcePlayerName(playerName)
                 .cardType(cardType)
+                .cardId(cardId)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+
+    public static GameEvent cardCheck(String playerId, String playerName, String cardType, String cardId) {
+        return GameEvent.builder()
+                .type("CARD_CHECK")
+                .sourcePlayerId(playerId)
+                .sourcePlayerName(playerName)
+                .cardType(cardType)
+                .cardId(cardId)
                 .timestamp(System.currentTimeMillis())
                 .build();
     }

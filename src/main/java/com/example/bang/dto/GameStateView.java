@@ -26,6 +26,7 @@ public class GameStateView {
     private String pendingActionType;
     private String pendingActionSourcePlayerId;
     private int missedCardsRequired;
+    private java.util.Set<String> usedReactionAbilities;
     private List<Card> generalStoreCards;
     private String winnerId;
     private Role winningTeam;
@@ -60,6 +61,7 @@ public class GameStateView {
                 .pendingActionType(state.getPendingActionType())
                 .pendingActionSourcePlayerId(state.getPendingActionSourcePlayerId())
                 .missedCardsRequired(state.getMissedCardsRequired())
+                .usedReactionAbilities(state.getUsedReactionAbilities())
                 .generalStoreCards(null)
                 .winnerId(state.getWinnerId())
                 .winningTeam(state.getWinningTeam())

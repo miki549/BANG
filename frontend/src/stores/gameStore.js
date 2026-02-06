@@ -6,7 +6,7 @@ import { useSoundManager } from '../composables/useSoundManager'
 
 export const useGameStore = defineStore('game', () => {
   const { connect, disconnect, send, subscribeToRoom, connected } = useWebSocket()
-  const { queueAnimation, processQueue } = useAnimationQueue()
+  const { queueAnimation, processQueue, isProcessing } = useAnimationQueue()
   const { playSound } = useSoundManager()
 
   // State
@@ -154,6 +154,12 @@ export const useGameStore = defineStore('game', () => {
     })
   }
 
+  function useAbility(abilityId) {
+    send('/app/game/useAbility', {
+      cardId: abilityId
+    })
+  }
+
   // Message handlers
   function handleLobbyMessage(message) {
     console.log('handleLobbyMessage:', message.type, message)
@@ -282,6 +288,7 @@ export const useGameStore = defineStore('game', () => {
     isHost,
     error,
     connected,
+    isProcessing,
 
     // Computed
     currentPlayer,
@@ -304,6 +311,7 @@ export const useGameStore = defineStore('game', () => {
     kickPlayer,
     discardCard,
     respondToAction,
+    useAbility,
     handleLobbyMessage,
     handleGameMessage,
     handleGameEvent,

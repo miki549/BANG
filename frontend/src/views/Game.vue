@@ -54,7 +54,7 @@
       />
 
       <!-- Action Prompt -->
-      <div v-if="needsToRespond" 
+      <div v-if="needsToRespond && !isProcessing"
            class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40
                   bg-western-dark/95 border-2 border-western-gold rounded-xl p-6 text-center max-w-md">
         <h3 class="text-xl font-bold text-western-gold mb-4">
@@ -63,10 +63,22 @@
         <p class="text-western-sand mb-4">
           Play a {{ requiredCardType }} card or take the hit!
         </p>
-        <div class="flex justify-center gap-4">
-          <button @click="takeHit" class="btn-danger">
-            Take Hit
-          </button>
+        <div class="flex flex-col gap-2 items-center">
+            <div class="flex justify-center gap-4">
+              <button @click="takeHit" class="btn-danger">
+                Take Hit
+              </button>
+            </div>
+            
+            <div v-if="canUseBarrel || canUseJourdonnais" class="flex justify-center gap-4 mt-2">
+                <button v-if="canUseBarrel" @click="useBarrel" class="btn-western flex items-center gap-2 px-3 py-1 text-sm bg-blue-700 hover:bg-blue-600 border-blue-400">
+                    <img src="/images/cards/barrel.png" class="w-6 h-6 object-contain" />
+                    Use Barrel
+                </button>
+                <button v-if="canUseJourdonnais" @click="useJourdonnais" class="btn-western flex items-center gap-2 px-3 py-1 text-sm bg-purple-700 hover:bg-purple-600 border-purple-400">
+                    🤠 Use Jourdonnais
+                </button>
+            </div>
         </div>
       </div>
 
@@ -348,6 +360,7 @@ const otherPlayers = computed(() => gameStore.otherPlayers)
 const isMyTurn = computed(() => gameStore.isMyTurn)
 const phase = computed(() => gameStore.phase)
 const needsToRespond = computed(() => gameStore.needsToRespond)
+const isProcessing = computed(() => gameStore.isProcessing)
 const drawPileSize = computed(() => gameState.value?.drawPileSize || 0)
 const topDiscardCard = computed(() => gameState.value?.topDiscardCard)
 const isGameOver = computed(() => gameState.value?.phase === 'GAME_OVER')
@@ -397,6 +410,34 @@ const requiredCardType = computed(() => {
   if (actionType === 'BANG' || actionType === 'GATLING') return 'Missed!'
   if (actionType === 'INDIANS' || actionType === 'DUEL') return 'BANG!'
   return 'response'
+})
+
+const usedAbilities = computed(() => gameState.value?.usedReactionAbilities || [])
+
+const canUseBarrel = computed(() => {
+    // Check if player has Barrel in play
+    const hasBarrel = currentPlayer.value?.cardsInPlay?.some(c => c.type === 'BARREL')
+    if (!hasBarrel) return false
+    
+    // Check if not used
+    const barrelCard = currentPlayer.value?.cardsInPlay?.find(c => c.type === 'BARREL')
+    if (usedAbilities.value.includes(barrelCard?.id)) return false
+    
+    // Check if valid action type (only BANG and GATLING)
+    const actionType = gameState.value?.pendingActionType
+    if (actionType !== 'BANG' && actionType !== 'GATLING') return false
+    
+    return true
+})
+
+const canUseJourdonnais = computed(() => {
+    if (currentPlayer.value?.characterName !== 'Jourdonnais') return false
+    if (usedAbilities.value.includes('JOURDONNAIS')) return false
+    
+    const actionType = gameState.value?.pendingActionType
+    if (actionType !== 'BANG' && actionType !== 'GATLING') return false
+    
+    return true
 })
 
 onMounted(async () => {
@@ -460,14 +501,14 @@ watch(() => currentPlayer.value?.health, (newVal, oldVal) => {
         flashingIndices.value.add(i)
         setTimeout(() => {
           flashingIndices.value.delete(i)
-        }, 3200)
+        }, 3500)
       }
     } else if (newVal > oldVal) {
       for (let i = oldVal + 1; i <= newVal; i++) {
         flashingGreenIndices.value.add(i)
         setTimeout(() => {
           flashingGreenIndices.value.delete(i)
-        }, 3200)
+        }, 3500)
       }
     }
   }
@@ -643,6 +684,17 @@ function passTurn() {
 
 function takeHit() {
   gameStore.respondToAction(null, false)
+}
+
+function useBarrel() {
+    const barrelCard = currentPlayer.value?.cardsInPlay?.find(c => c.type === 'BARREL')
+    if (barrelCard) {
+        gameStore.useAbility(barrelCard.id)
+    }
+}
+
+function useJourdonnais() {
+    gameStore.useAbility('JOURDONNAIS')
 }
 
 function getActionPrompt() {

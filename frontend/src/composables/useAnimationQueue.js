@@ -56,6 +56,9 @@ export function useAnimationQueue() {
         case 'CARD_DISCARDED':
           animateCardDiscarded(event, onResolve)
           break
+        case 'CARD_CHECK':
+          animateCardCheck(event, onResolve)
+          break
         case 'STATE_UPDATE':
           if (event.updateFn) event.updateFn()
           onResolve()
@@ -380,7 +383,7 @@ export function useAnimationQueue() {
 
   function animatePlayerEliminated(event, resolve) {
     const targetEl = document.querySelector(`[data-player-id="${event.targetPlayerId}"]`)
-
+    
     if (!targetEl) {
       resolve()
       return
@@ -393,6 +396,110 @@ export function useAnimationQueue() {
       duration: 0.5,
       onComplete: resolve
     })
+  }
+
+  function animateCardCheck(event, resolve) {
+    const deckEl = document.querySelector('[data-deck-pile]')
+    const discardEl = document.querySelector('[data-discard-pile]')
+
+    if (!deckEl || !discardEl) {
+      resolve()
+      return
+    }
+
+    const deckRect = deckEl.getBoundingClientRect()
+    const discardRect = discardEl.getBoundingClientRect()
+    
+    const viewportCenterX = window.innerWidth / 2 - 48
+    const viewportCenterY = window.innerHeight / 2 - 72
+
+    // 0. Dark Overlay
+    const overlay = document.createElement('div')
+    overlay.className = 'fixed inset-0 bg-black/70 z-[150] pointer-events-none opacity-0'
+    document.body.appendChild(overlay)
+
+    // 1. Create Card manually to ensure image back
+    const card = document.createElement('div')
+    card.className = 'fixed z-[200] shadow-2xl rounded-lg overflow-hidden card-game'
+    card.style.left = '0px'
+    card.style.top = '0px'
+    
+    const img = document.createElement('img')
+    img.src = '/images/common/deck.png' // Use explicit deck image
+    img.className = 'w-full h-full object-cover'
+    card.appendChild(img)
+    document.body.appendChild(card)
+    
+    gsap.set(card, {
+        x: deckRect.left,
+        y: deckRect.top,
+        scale: 1,
+        rotation: 0,
+        rotationY: 0,
+        opacity: 1,
+        transformPerspective: 1000,
+        transformStyle: 'preserve-3d',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+    })
+
+    const timeline = gsap.timeline({
+        onComplete: () => {
+            card.remove()
+            overlay.remove()
+            resolve()
+        }
+    })
+
+    // Phase 1: Focus & Move to Center (Face Down)
+    timeline.to(overlay, { opacity: 1, duration: 0.5 }, 0)
+    
+    timeline.to(card, {
+        x: viewportCenterX,
+        y: viewportCenterY,
+        scale: 2.5,
+        duration: 0.8,
+        ease: 'power2.out'
+    }, 0)
+
+    // Phase 2: Flip (Reveal)
+    timeline.to(card, {
+        rotationY: 90,
+        duration: 0.3,
+        ease: 'power1.in'
+    })
+    
+    // Swap Image
+    timeline.call(() => {
+        img.src = getCardImage(event.cardType)
+        gsap.set(card, { rotationY: -90 })
+    })
+
+    timeline.to(card, {
+        rotationY: 0,
+        duration: 0.3,
+        ease: 'power1.out'
+    })
+
+    // Phase 3: Wait
+    timeline.to(card, {
+        scale: 2.6,
+        duration: 1.5,
+        yoyo: true,
+        repeat: 1,
+        ease: 'sine.inOut'
+    })
+
+    // Phase 4: Move to Discard
+    timeline.to(overlay, { opacity: 0, duration: 0.5 }, ">-0.5")
+    
+    timeline.to(card, {
+        x: discardRect.left + discardRect.width / 2 - 48,
+        y: discardRect.top + discardRect.height / 2 - 72,
+        scale: 1,
+        rotation: 180,
+        duration: 0.8, // Slower discard to be visible
+        ease: 'power2.in'
+    }, "<")
   }
 
   return {

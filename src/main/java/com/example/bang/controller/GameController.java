@@ -122,6 +122,21 @@ public class GameController {
         log.debug("Player {} responded to action in room {}", playerId, roomId);
     }
 
+    @MessageMapping("/game/useAbility")
+    public void useAbility(@Payload GameMessage message, SimpMessageHeaderAccessor headerAccessor) {
+        String sessionId = headerAccessor.getSessionId();
+        String roomId = roomService.getRoomIdForSession(sessionId);
+        String playerId = roomService.getPlayerIdForSession(sessionId);
+
+        if (roomId == null || playerId == null) {
+            sendError(headerAccessor, "Not in a game");
+            return;
+        }
+
+        gameService.useAbility(roomId, playerId, message.getCardId());
+        log.debug("Player {} used ability {} in room {}", playerId, message.getCardId(), roomId);
+    }
+
     private void sendError(SimpMessageHeaderAccessor headerAccessor, String errorMessage) {
         String principalName = headerAccessor.getUser() != null ? headerAccessor.getUser().getName() : headerAccessor.getSessionId();
         GameMessage error = GameMessage.builder()

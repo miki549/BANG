@@ -184,9 +184,21 @@ public class GameService {
                 if (card.isWeapon()) {
                     if (player.getWeapon() != null) {
                         state.discardCard(player.getWeapon());
+                        broadcastEvent(roomId, GameEvent.cardDiscarded(player.getId(), player.getName(), player.getWeapon().getType().name(), player.getWeapon().getId()));
                     }
                     player.setWeapon(card);
                 } else {
+                    // Check for existing copy of same type
+                    Card existing = player.getInPlay().stream()
+                            .filter(c -> c.getType() == card.getType())
+                            .findFirst()
+                            .orElse(null);
+
+                    if (existing != null) {
+                        player.getInPlay().remove(existing);
+                        state.discardCard(existing);
+                        broadcastEvent(roomId, GameEvent.cardDiscarded(player.getId(), player.getName(), existing.getType().name(), existing.getId()));
+                    }
                     player.getInPlay().add(card);
                 }
             }
@@ -263,6 +275,8 @@ public class GameService {
 
         // Set up reaction phase
         state.setPhase(GamePhase.REACTION_PHASE);
+        state.getPendingActionPlayers().clear();
+        state.getPendingActionPlayers().add(target.getId());
         state.setPendingActionPlayerId(target.getId());
         state.setPendingActionSourcePlayerId(player.getId());
         state.setPendingActionType("BANG");
@@ -393,7 +407,7 @@ public class GameService {
 
         if (discarded != null) {
             state.discardCard(discarded);
-            events.add(GameEvent.cardDiscarded(target.getId(), target.getName(), discarded.getType().name()));
+            events.add(GameEvent.cardDiscarded(target.getId(), target.getName(), discarded.getType().name(), discarded.getId()));
             return events;
         }
 
@@ -428,6 +442,8 @@ public class GameService {
         if (target == null || !target.isAlive()) return null;
         
         state.setPhase(GamePhase.REACTION_PHASE);
+        state.getPendingActionPlayers().clear();
+        state.getPendingActionPlayers().add(target.getId());
         state.setPendingActionPlayerId(target.getId());
         state.setPendingActionSourcePlayerId(player.getId());
         state.setPendingActionType("DUEL");
@@ -437,32 +453,43 @@ public class GameService {
     }
 
     private List<GameEvent> processGatling(GameState state, Player player) {
-        // Hits all other players
-        for (Player target : state.getAlivePlayers()) {
-            if (!target.getId().equals(player.getId())) {
-                state.setPhase(GamePhase.REACTION_PHASE);
-                state.setPendingActionPlayerId(target.getId());
-                state.setPendingActionSourcePlayerId(player.getId());
-                state.setPendingActionType("GATLING");
-                state.setMissedCardsRequired(1);
-                // For simplicity, process one at a time
-                break;
-            }
+        state.getPendingActionPlayers().clear();
+        List<Player> alive = state.getAlivePlayers();
+        int currentIndex = alive.indexOf(player);
+
+        // Add players after current player
+        for (int i = 1; i < alive.size(); i++) {
+            int targetIndex = (currentIndex + i) % alive.size();
+            state.getPendingActionPlayers().add(alive.get(targetIndex).getId());
+        }
+
+        if (!state.getPendingActionPlayers().isEmpty()) {
+            state.setPhase(GamePhase.REACTION_PHASE);
+            state.setPendingActionPlayerId(state.getPendingActionPlayers().get(0));
+            state.setPendingActionSourcePlayerId(player.getId());
+            state.setPendingActionType("GATLING");
+            state.setMissedCardsRequired(1);
         }
         return new ArrayList<>();
     }
 
     private List<GameEvent> processIndians(GameState state, Player player) {
-        // All other players must play BANG or lose 1 HP
-        for (Player target : state.getAlivePlayers()) {
-            if (!target.getId().equals(player.getId())) {
-                state.setPhase(GamePhase.REACTION_PHASE);
-                state.setPendingActionPlayerId(target.getId());
-                state.setPendingActionSourcePlayerId(player.getId());
-                state.setPendingActionType("INDIANS");
-                state.setMissedCardsRequired(1);
-                break;
-            }
+        state.getPendingActionPlayers().clear();
+        List<Player> alive = state.getAlivePlayers();
+        int currentIndex = alive.indexOf(player);
+
+        // Add players after current player
+        for (int i = 1; i < alive.size(); i++) {
+            int targetIndex = (currentIndex + i) % alive.size();
+            state.getPendingActionPlayers().add(alive.get(targetIndex).getId());
+        }
+
+        if (!state.getPendingActionPlayers().isEmpty()) {
+            state.setPhase(GamePhase.REACTION_PHASE);
+            state.setPendingActionPlayerId(state.getPendingActionPlayers().get(0));
+            state.setPendingActionSourcePlayerId(player.getId());
+            state.setPendingActionType("INDIANS");
+            state.setMissedCardsRequired(1);
         }
         return new ArrayList<>();
     }
@@ -533,7 +560,7 @@ public class GameService {
 
         player.removeCardFromHand(card);
         state.discardCard(card);
-        broadcastEvent(roomId, GameEvent.cardDiscarded(player.getId(), player.getName(), card.getType().name()));
+        broadcastEvent(roomId, GameEvent.cardDiscarded(player.getId(), player.getName(), card.getType().name(), card.getId()));
 
         if (player.getHand().size() <= player.getHandLimit()) {
             endTurn(state);
@@ -600,7 +627,7 @@ public class GameService {
                             state.setPendingActionSourcePlayerId(playerId);
                             state.setMissedCardsRequired(1);
                         } else {
-                            clearPendingAction(state);
+                            advanceToNextReactionPlayer(state);
                         }
                     }
                 }
@@ -608,7 +635,11 @@ public class GameService {
         } else {
             // Player takes damage
             applyDamage(state, player, 1, state.getPlayerById(state.getPendingActionSourcePlayerId()));
-            clearPendingAction(state);
+            if ("DUEL".equals(actionType)) {
+                clearPendingAction(state);
+            } else {
+                advanceToNextReactionPlayer(state);
+            }
         }
 
         checkGameEnd(state);
@@ -709,11 +740,91 @@ public class GameService {
 
     private void clearPendingAction(GameState state) {
         state.setPendingActionPlayerId(null);
+        state.getPendingActionPlayers().clear();
         state.setPendingActionSourcePlayerId(null);
         state.setPendingActionType(null);
         state.setPendingActionCard(null);
         state.setMissedCardsRequired(0);
+        state.getUsedReactionAbilities().clear();
         state.setPhase(GamePhase.PLAY_PHASE);
+    }
+
+    private void advanceToNextReactionPlayer(GameState state) {
+        String current = state.getPendingActionPlayerId();
+        state.getPendingActionPlayers().remove(current);
+        state.getUsedReactionAbilities().clear();
+
+        if (!state.getPendingActionPlayers().isEmpty()) {
+            state.setPendingActionPlayerId(state.getPendingActionPlayers().get(0));
+            state.setMissedCardsRequired(1);
+        } else {
+            clearPendingAction(state);
+        }
+    }
+
+    public void useAbility(String roomId, String playerId, String abilityId) {
+        GameState state = games.get(roomId);
+        if (state == null) return;
+        if (state.getPhase() != GamePhase.REACTION_PHASE) return;
+
+        // Barrel/Ability only works for BANG and GATLING
+        if (!"BANG".equals(state.getPendingActionType()) && !"GATLING".equals(state.getPendingActionType())) return;
+
+        Player player = state.getPlayerById(playerId);
+        if (player == null || !player.getId().equals(state.getPendingActionPlayerId())) {
+            return;
+        }
+
+        // Check if already used
+        if (state.getUsedReactionAbilities().contains(abilityId)) return;
+
+        // Verify player has this ability
+        boolean hasAbility = false;
+        if ("JOURDONNAIS".equals(abilityId)) {
+            hasAbility = player.getCharacter() == CharacterType.JOURDONNAIS;
+        } else {
+            // Check in-play cards (Barrel)
+            String finalAbilityId = abilityId;
+            hasAbility = player.getInPlay().stream()
+                    .anyMatch(c -> c.getId().equals(finalAbilityId) && c.getType() == CardType.BARREL);
+        }
+
+        if (!hasAbility) return;
+        
+        // Draw card for check
+        Card checkCard = state.drawCard();
+        if (checkCard != null) {
+            state.discardCard(checkCard);
+            broadcastEvent(roomId, GameEvent.cardCheck(player.getId(), player.getName(), checkCard.getType().name(), checkCard.getId()));
+            
+            boolean success = checkCard.getSuit() == CardSuit.HEARTS;
+            
+            // Lucky Duke: draw second card and choose best
+            if (player.getCharacter() == CharacterType.LUCKY_DUKE) {
+                Card checkCard2 = state.drawCard();
+                if (checkCard2 != null) {
+                     state.discardCard(checkCard2);
+                     broadcastEvent(roomId, GameEvent.cardCheck(player.getId(), player.getName(), checkCard2.getType().name(), checkCard2.getId()));
+                     
+                     if (checkCard2.getSuit() == CardSuit.HEARTS) {
+                         success = true;
+                     }
+                }
+            }
+
+            if (success) {
+                 int remaining = state.getMissedCardsRequired() - 1;
+                 state.setMissedCardsRequired(remaining);
+
+                 if (remaining <= 0) {
+                     advanceToNextReactionPlayer(state);
+                 }
+            } else {
+                state.getUsedReactionAbilities().add(abilityId);
+            }
+            
+            broadcastGameState(roomId);
+        }
     }
 
     private void endTurn(GameState state) {

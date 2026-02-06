@@ -30,10 +30,15 @@ public class GameState {
     private GamePhase phase;
     
     private String pendingActionPlayerId;
+    @Builder.Default
+    private List<String> pendingActionPlayers = new ArrayList<>();
     private String pendingActionType;
     private String pendingActionSourcePlayerId;
     private Card pendingActionCard;
     private int missedCardsRequired;
+
+    @Builder.Default
+    private java.util.Set<String> usedReactionAbilities = new java.util.HashSet<>();
     
     @Builder.Default
     private List<String> generalStoreCards = new ArrayList<>();

@@ -17,8 +17,12 @@ export function useSoundManager() {
         volume: volume.value
       }),
       draw: new Howl({
-        src: ['/sounds/draw.mp3'],
+        src: ['/sounds/card_draw.mp3'],
         volume: volume.value
+      }),
+      card_select: new Howl({
+        src: ['/sounds/card_select.mp3'],
+        volume: volume.value * 0.3
       }),
       death: new Howl({
         src: ['/sounds/death.mp3'],

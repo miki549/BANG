@@ -164,6 +164,7 @@ export const useGameStore = defineStore('game', () => {
     send('/app/game/pickGeneralStore', {
       cardId
     })
+    playSound('draw')
   }
 
   // Message handlers
@@ -270,6 +271,9 @@ export const useGameStore = defineStore('game', () => {
         break
       case 'PLAYER_ELIMINATED':
         playSound('death')
+        break
+      case 'CARD_DRAWN':
+        playSound('draw')
         break
     }
 

@@ -220,7 +220,7 @@
                      :key="card.id"
                      class="absolute transition-all duration-300 transform-gpu origin-bottom-center"
                      :style="getFanStyle(index, myHand.length, selectedCard?.id === card.id)"
-                     @mouseenter="hoveredCardIndex = index"
+                     @mouseenter="handleCardHover(index)"
                      @mouseleave="hoveredCardIndex = -1"
                      @click="handleCardClick(card)"
                      @wheel="handleCardWheel($event, { imageSrc: getCardImage(card.type), title: card.type, suit: card.suit, value: card.value })">
@@ -360,6 +360,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../stores/gameStore'
 import { useAnimationQueue } from '../composables/useAnimationQueue'
+import { useSoundManager } from '../composables/useSoundManager'
 import CardComponent from '../components/CardComponent.vue'
 import PlayerSeat from '../components/PlayerSeat.vue'
 import HealthBar from '../components/HealthBar.vue'
@@ -368,6 +369,7 @@ const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
 const { animatingCardIds } = useAnimationQueue()
+const { playSound } = useSoundManager()
 
 const selectedCard = ref(null)
 const selectedTarget = ref(null)
@@ -601,6 +603,13 @@ function isCardPlayable(card) {
   if (phase.value !== 'PLAY_PHASE') return false
   
   return true
+}
+
+function handleCardHover(index) {
+  if (hoveredCardIndex.value !== index) {
+    hoveredCardIndex.value = index
+    playSound('card_select')
+  }
 }
 
 function canTargetPlayer(player) {

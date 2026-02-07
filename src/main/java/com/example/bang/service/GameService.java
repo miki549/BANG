@@ -795,7 +795,15 @@ public class GameService {
         Card checkCard = state.drawCard();
         if (checkCard != null) {
             state.discardCard(checkCard);
-            broadcastEvent(roomId, GameEvent.cardCheck(player.getId(), player.getName(), checkCard.getType().name(), checkCard.getId()));
+            
+            // Create check event with extra data for display
+            GameEvent checkEvent = GameEvent.cardCheck(player.getId(), player.getName(), checkCard.getType().name(), checkCard.getId());
+            // Add suit and value info to data payload for frontend
+            checkEvent.setData(Map.of(
+                "suit", checkCard.getSuit().name(),
+                "value", checkCard.getValue()
+            ));
+            broadcastEvent(roomId, checkEvent);
             
             boolean success = checkCard.getSuit() == CardSuit.HEARTS;
             
@@ -804,7 +812,13 @@ public class GameService {
                 Card checkCard2 = state.drawCard();
                 if (checkCard2 != null) {
                      state.discardCard(checkCard2);
-                     broadcastEvent(roomId, GameEvent.cardCheck(player.getId(), player.getName(), checkCard2.getType().name(), checkCard2.getId()));
+                     
+                     GameEvent checkEvent2 = GameEvent.cardCheck(player.getId(), player.getName(), checkCard2.getType().name(), checkCard2.getId());
+                     checkEvent2.setData(Map.of(
+                        "suit", checkCard2.getSuit().name(),
+                        "value", checkCard2.getValue()
+                     ));
+                     broadcastEvent(roomId, checkEvent2);
                      
                      if (checkCard2.getSuit() == CardSuit.HEARTS) {
                          success = true;

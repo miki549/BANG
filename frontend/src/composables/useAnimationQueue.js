@@ -69,6 +69,16 @@ export function useAnimationQueue() {
     })
   }
 
+  function getSuitSymbol(suit) {
+    const suits = {
+      'HEARTS': '♥',
+      'DIAMONDS': '♦',
+      'CLUBS': '♣',
+      'SPADES': '♠'
+    }
+    return suits[suit] || '?'
+  }
+
   function getCardImage(type) {
     if (!type || type === 'UNKNOWN') return '/images/common/deck.png'
     const imageMap = {
@@ -413,47 +423,130 @@ export function useAnimationQueue() {
     const viewportCenterX = window.innerWidth / 2 - 48
     const viewportCenterY = window.innerHeight / 2 - 72
 
-    // 0. Dark Overlay
+    // 0. Focus (Dim Background)
     const overlay = document.createElement('div')
-    overlay.className = 'fixed inset-0 bg-black/70 z-[150] pointer-events-none opacity-0'
+    overlay.className = 'fixed inset-0 bg-black/60 z-[150] pointer-events-none opacity-0'
     document.body.appendChild(overlay)
 
-    // 1. Create Card manually to ensure image back
-    const card = document.createElement('div')
-    card.className = 'fixed z-[200] shadow-2xl rounded-lg overflow-hidden card-game'
-    card.style.left = '0px'
-    card.style.top = '0px'
+    // 1. Create Card Container with Inner Structure for Proper 3D Flip
+    // IMPORTANT: Inline styles are safer to avoid Tailwind purge/conflict issues with dynamic elements
+    const cardContainer = document.createElement('div')
+    cardContainer.style.cssText = `
+        position: fixed;
+        width: 96px;
+        height: 144px;
+        z-index: 200;
+        perspective: 1000px;
+        pointer-events: none;
+        top: 0;
+        left: 0;
+    `
     
-    const img = document.createElement('img')
-    img.src = '/images/common/deck.png' // Use explicit deck image
-    img.className = 'w-full h-full object-cover'
-    card.appendChild(img)
-    document.body.appendChild(card)
+    const cardInner = document.createElement('div')
+    cardInner.style.cssText = `
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transform-style: preserve-3d;
+    `
     
-    gsap.set(card, {
+    // Front Face (The actual card value, initially rotated 180deg to be hidden)
+    const cardFront = document.createElement('div')
+    cardFront.style.cssText = `
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        transform: rotateY(180deg);
+        border-radius: 0.5rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+    `
+    // Re-use card-game style manually to ensure visibility
+    cardFront.classList.add('card-game')
+    
+    const frontImg = document.createElement('img')
+    frontImg.src = getCardImage(event.cardType)
+    frontImg.style.cssText = 'width: 100%; height: 100%; object-fit: cover;'
+    cardFront.appendChild(frontImg)
+
+    // Retrieve suit/value data from event (must be added to event payload first)
+    if (event.data && event.data.suit && event.data.value) {
+        const badge = document.createElement('div')
+        badge.style.cssText = `
+            position: absolute;
+            bottom: -2px;
+            left: 3px;
+            display: flex;
+            align-items: flex-end;
+            gap: 1px;
+            z-index: 10;
+            padding: 0;
+            background: transparent;
+        `
+        
+        const valueSpan = document.createElement('span')
+        valueSpan.textContent = event.data.value
+        // text-xs font-semibold (approx 12px) - matching standard cards
+        valueSpan.style.cssText = 'font-size: 0.75rem; font-weight: 600; color: #1f2937; text-shadow: 0 0 2px white;'
+        
+        const suitSpan = document.createElement('span')
+        suitSpan.textContent = getSuitSymbol(event.data.suit)
+        const isRed = event.data.suit === 'HEARTS' || event.data.suit === 'DIAMONDS'
+        // text-sm font-bold (approx 14px) - matching standard cards
+        suitSpan.style.cssText = `font-size: 0.875rem; font-weight: 700; color: ${isRed ? '#ef4444' : '#1f2937'}; text-shadow: 0 0 2px white;`
+        
+        badge.appendChild(valueSpan)
+        badge.appendChild(suitSpan)
+        cardFront.appendChild(badge)
+    }
+    
+    // Back Face (The deck back, initially visible at 0deg)
+    const cardBack = document.createElement('div')
+    cardBack.style.cssText = `
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        border-radius: 0.5rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+    `
+    // Apply card-back style manually if class fails
+    cardBack.classList.add('card-game', 'card-back')
+    
+    const backImg = document.createElement('img')
+    backImg.src = '/images/common/deck.png'
+    backImg.style.cssText = 'width: 100%; height: 100%; object-fit: cover;'
+    cardBack.appendChild(backImg)
+    
+    cardInner.appendChild(cardFront)
+    cardInner.appendChild(cardBack)
+    cardContainer.appendChild(cardInner)
+    document.body.appendChild(cardContainer)
+    
+    // Initial Position (At Deck)
+    gsap.set(cardContainer, {
         x: deckRect.left,
         y: deckRect.top,
         scale: 1,
-        rotation: 0,
-        rotationY: 0,
-        opacity: 1,
-        transformPerspective: 1000,
-        transformStyle: 'preserve-3d',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+        zIndex: 200
     })
 
     const timeline = gsap.timeline({
         onComplete: () => {
-            card.remove()
+            cardContainer.remove()
             overlay.remove()
             resolve()
         }
     })
 
-    // Phase 1: Focus & Move to Center (Face Down)
+    // Phase 1: Lift & Move to Center (Face Down)
     timeline.to(overlay, { opacity: 1, duration: 0.5 }, 0)
     
-    timeline.to(card, {
+    timeline.to(cardContainer, {
         x: viewportCenterX,
         y: viewportCenterY,
         scale: 2.5,
@@ -461,43 +554,32 @@ export function useAnimationQueue() {
         ease: 'power2.out'
     }, 0)
 
-    // Phase 2: Flip (Reveal)
-    timeline.to(card, {
-        rotationY: 90,
-        duration: 0.3,
-        ease: 'power1.in'
-    })
-    
-    // Swap Image
-    timeline.call(() => {
-        img.src = getCardImage(event.cardType)
-        gsap.set(card, { rotationY: -90 })
+    // Phase 2: 3D Flip (Reveal)
+    // Rotate the inner container 180 degrees to show front
+    timeline.to(cardInner, {
+        rotationY: 180,
+        duration: 0.6,
+        ease: 'back.out(1.2)'
     })
 
-    timeline.to(card, {
-        rotationY: 0,
-        duration: 0.3,
-        ease: 'power1.out'
-    })
-
-    // Phase 3: Wait
-    timeline.to(card, {
-        scale: 2.6,
+    // Phase 3: Showcase (Pause)
+    timeline.to(cardContainer, {
+        scale: 2.6, // Slight zoom in
         duration: 1.5,
         yoyo: true,
         repeat: 1,
         ease: 'sine.inOut'
     })
 
-    // Phase 4: Move to Discard
+    // Phase 4: Discard (Shrink & Move to Discard Pile)
     timeline.to(overlay, { opacity: 0, duration: 0.5 }, ">-0.5")
     
-    timeline.to(card, {
+    timeline.to(cardContainer, {
         x: discardRect.left + discardRect.width / 2 - 48,
         y: discardRect.top + discardRect.height / 2 - 72,
         scale: 1,
-        rotation: 180,
-        duration: 0.8, // Slower discard to be visible
+        rotation: 360, // Spin while moving
+        duration: 0.6,
         ease: 'power2.in'
     }, "<")
   }

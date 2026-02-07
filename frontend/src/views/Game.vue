@@ -54,7 +54,7 @@
       />
 
       <!-- Action Prompt -->
-      <div v-if="needsToRespond && !isProcessing"
+      <div v-if="needsToRespond && !isProcessing && phase !== 'GENERAL_STORE_PHASE'"
            class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40
                   bg-western-dark/95 border-2 border-western-gold rounded-xl p-6 text-center max-w-md">
         <h3 class="text-xl font-bold text-western-gold mb-4">
@@ -80,6 +80,31 @@
                 </button>
             </div>
         </div>
+      </div>
+
+      <!-- General Store Overlay -->
+      <div v-if="phase === 'GENERAL_STORE_PHASE'"
+           class="fixed inset-0 bg-black/60 z-50 flex flex-col items-center justify-center pointer-events-none">
+           <div class="bg-western-dark/95 border-4 border-western-gold rounded-2xl p-8 max-w-4xl pointer-events-auto">
+                <h3 class="text-3xl font-western text-western-gold mb-8 text-center">
+                    General Store
+                </h3>
+                <p v-if="needsToRespond" class="text-xl text-green-400 text-center mb-6 font-bold animate-pulse">
+                    Your turn to pick a card!
+                </p>
+                <p v-else class="text-xl text-western-sand text-center mb-6">
+                    Waiting for {{ gameState?.players?.find(p => p.id === gameState?.pendingActionPlayerId)?.name }} to pick...
+                </p>
+
+                <div class="flex justify-center gap-6 flex-wrap">
+                    <div v-for="card in gameState?.generalStoreCards"
+                         :key="card.id"
+                         class="transform transition-transform hover:scale-110 cursor-pointer"
+                         @click="handleGeneralStorePick(card)">
+                        <CardComponent :card="card" class="w-32 h-48 shadow-2xl" :class="{'ring-4 ring-green-500': needsToRespond}" />
+                    </div>
+                </div>
+           </div>
       </div>
 
       <!-- Current Player Area (Bottom) -->
@@ -394,6 +419,7 @@ const phaseDisplay = computed(() => {
     'PLAY_PHASE': 'Play Phase',
     'DISCARD_PHASE': 'Discard Phase',
     'REACTION_PHASE': 'Reaction!',
+    'GENERAL_STORE_PHASE': 'General Store',
     'GAME_OVER': 'Game Over'
   }
   return phases[phase.value] || phase.value
@@ -695,6 +721,11 @@ function useBarrel() {
 
 function useJourdonnais() {
     gameStore.useAbility('JOURDONNAIS')
+}
+
+function handleGeneralStorePick(card) {
+    if (!needsToRespond.value) return;
+    gameStore.pickGeneralStoreCard(card.id);
 }
 
 function getActionPrompt() {

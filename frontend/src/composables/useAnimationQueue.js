@@ -59,6 +59,9 @@ export function useAnimationQueue() {
         case 'CARD_CHECK':
           animateCardCheck(event, onResolve)
           break
+        case 'CARD_PASSED':
+          animateCardPassed(event, onResolve)
+          break
         case 'STATE_UPDATE':
           if (event.updateFn) event.updateFn()
           onResolve()
@@ -197,6 +200,37 @@ export function useAnimationQueue() {
         scale: 1.1,
         duration: 0.7,
         ease: 'back.inOut(1.2)',
+        onComplete: () => {
+            card.remove()
+            resolve()
+        }
+    })
+  }
+
+  function animateCardPassed(event, resolve) {
+    // Similar to Discard but moves to another player's blue slot area
+    const sourceEl = document.querySelector(`[data-player-id="${event.sourcePlayerId}"]`)
+    const targetEl = document.querySelector(`[data-player-id="${event.targetPlayerId}"]`)
+
+    if (!sourceEl || !targetEl) {
+      resolve()
+      return
+    }
+
+    const startRect = sourceEl.getBoundingClientRect()
+    const endRect = targetEl.getBoundingClientRect()
+
+    // Create card with specific type (e.g. DYNAMITE)
+    const card = createFloatingCard(event.cardType, startRect.left + startRect.width/2 - 48, startRect.top + startRect.height/2 - 72)
+
+    // Animate arc to next player
+    gsap.to(card, {
+        x: endRect.left + endRect.width / 2 - 48,
+        y: endRect.top + endRect.height / 2 - 72,
+        rotation: 360,
+        scale: 1, // Keep normal size
+        duration: 0.8,
+        ease: 'power2.inOut',
         onComplete: () => {
             card.remove()
             resolve()

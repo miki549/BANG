@@ -41,7 +41,7 @@ public class GameState {
     private java.util.Set<String> usedReactionAbilities = new java.util.HashSet<>();
     
     @Builder.Default
-    private List<String> generalStoreCards = new ArrayList<>();
+    private List<Card> generalStoreCards = new ArrayList<>();
     
     private String winnerId;
     private Role winningTeam;

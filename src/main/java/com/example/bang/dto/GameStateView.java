@@ -62,7 +62,7 @@ public class GameStateView {
                 .pendingActionSourcePlayerId(state.getPendingActionSourcePlayerId())
                 .missedCardsRequired(state.getMissedCardsRequired())
                 .usedReactionAbilities(state.getUsedReactionAbilities())
-                .generalStoreCards(null)
+                .generalStoreCards(state.getGeneralStoreCards())
                 .winnerId(state.getWinnerId())
                 .winningTeam(state.getWinningTeam())
                 .build();

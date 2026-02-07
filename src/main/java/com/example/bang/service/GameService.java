@@ -187,6 +187,10 @@ public class GameService {
                         broadcastEvent(roomId, GameEvent.cardDiscarded(player.getId(), player.getName(), player.getWeapon().getType().name(), player.getWeapon().getId()));
                     }
                     player.setWeapon(card);
+                } else if (card.getType() == CardType.JAIL) {
+                    if (target != null) {
+                        target.getInPlay().add(card);
+                    }
                 } else {
                     // Check for existing copy of same type
                     Card existing = player.getInPlay().stream()
@@ -505,20 +509,38 @@ public class GameService {
 
     private List<GameEvent> processGeneralStore(GameState state, Player player) {
         // Draw cards equal to number of alive players
-        List<String> storeCards = new ArrayList<>();
-        for (int i = 0; i < state.getAlivePlayerCount(); i++) {
+        List<Card> storeCards = new ArrayList<>();
+        List<Player> alivePlayers = state.getAlivePlayers();
+        for (int i = 0; i < alivePlayers.size(); i++) {
             Card card = state.drawCard();
             if (card != null) {
-                storeCards.add(card.getId());
+                storeCards.add(card);
             }
         }
         state.setGeneralStoreCards(storeCards);
+
+        // Setup picking order starting with current player
+        state.setPhase(GamePhase.GENERAL_STORE_PHASE);
+        state.getPendingActionPlayers().clear();
+
+        int currentIndex = alivePlayers.indexOf(player);
+        // Add all players starting from current, wrapping around
+        for (int i = 0; i < alivePlayers.size(); i++) {
+            int targetIndex = (currentIndex + i) % alivePlayers.size();
+            state.getPendingActionPlayers().add(alivePlayers.get(targetIndex).getId());
+        }
+
+        if (!state.getPendingActionPlayers().isEmpty()) {
+            state.setPendingActionPlayerId(state.getPendingActionPlayers().get(0));
+        }
+
         return new ArrayList<>();
     }
 
     private List<GameEvent> processJail(GameState state, Player player, Player target) {
         if (target == null || !target.isAlive()) return null;
         if (target.isSheriff()) return null; // Can't jail the Sheriff
+        if (target.hasCardInPlay(CardType.JAIL)) return null;
         return new ArrayList<>();
     }
 
@@ -662,12 +684,41 @@ public class GameService {
             }
         }
 
-        // El Gringo steals from attacker
+        // El Gringo steals from attacker (only if damaged by a player)
         if (target.getCharacter() == CharacterType.EL_GRINGO && source != null && !source.getHand().isEmpty()) {
             int index = new Random().nextInt(source.getHand().size());
             Card stolen = source.getHand().remove(index);
             target.addCardToHand(stolen);
             broadcastEvent(state.getRoomId(), GameEvent.cardStolen(source.getId(), source.getName(), target.getId(), target.getName(), stolen.getType().name()));
+        }
+
+        // Beer Save Check (Last chance)
+        if (target.getHealth() <= 0) {
+            // Try to use beer from hand automatically?
+            // Standard rule: Player can play Beer immediately if lethal damage received
+            // This is complex to do "interactive" (ask player), usually implemented as auto-play if available for simplicity in some versions,
+            // OR we enter a "DYING" state where they must play Beer.
+            // For now, let's auto-play beer if they have it to save them.
+            
+            Card beer = target.getHand().stream()
+                    .filter(c -> c.getType() == CardType.BEER)
+                    .findFirst().orElse(null);
+            
+            while (target.getHealth() <= 0 && beer != null) {
+                target.removeCardFromHand(beer);
+                state.discardCard(beer);
+                target.heal(1);
+                
+                broadcastEvent(state.getRoomId(), GameEvent.cardPlayed(
+                        target.getId(), target.getName(),
+                        null, null,
+                        "BEER", beer.getId()
+                ));
+                
+                beer = target.getHand().stream()
+                        .filter(c -> c.getType() == CardType.BEER)
+                        .findFirst().orElse(null);
+            }
         }
 
         if (!target.isAlive()) {
@@ -760,6 +811,45 @@ public class GameService {
         } else {
             clearPendingAction(state);
         }
+    }
+
+    public void pickGeneralStoreCard(String roomId, String playerId, String cardId) {
+        GameState state = games.get(roomId);
+        if (state == null) return;
+        if (state.getPhase() != GamePhase.GENERAL_STORE_PHASE) return;
+
+        if (!playerId.equals(state.getPendingActionPlayerId())) return;
+
+        Card pickedCard = state.getGeneralStoreCards().stream()
+                .filter(c -> c.getId().equals(cardId))
+                .findFirst()
+                .orElse(null);
+
+        if (pickedCard == null) return;
+
+        Player player = state.getPlayerById(playerId);
+        if (player == null) return;
+
+        // Add to hand
+        player.addCardToHand(pickedCard);
+        state.getGeneralStoreCards().remove(pickedCard);
+
+        broadcastEvent(roomId, GameEvent.cardDrawn(player.getId(), player.getName()));
+
+        // Next player
+        state.getPendingActionPlayers().remove(playerId);
+
+        if (state.getPendingActionPlayers().isEmpty() || state.getGeneralStoreCards().isEmpty()) {
+            // End of General Store
+            state.getPendingActionPlayers().clear();
+            state.setPendingActionPlayerId(null);
+            state.getGeneralStoreCards().clear();
+            state.setPhase(GamePhase.PLAY_PHASE);
+        } else {
+            state.setPendingActionPlayerId(state.getPendingActionPlayers().get(0));
+        }
+
+        broadcastGameState(roomId);
     }
 
     public void useAbility(String roomId, String playerId, String abilityId) {
@@ -858,7 +948,7 @@ public class GameService {
     }
 
     private void processTurnStart(GameState state, Player player) {
-        // Check for Dynamite
+        // Check for Dynamite - Priority BEFORE Jail
         Card dynamite = player.getInPlay().stream()
                 .filter(c -> c.getType() == CardType.DYNAMITE)
                 .findFirst().orElse(null);
@@ -868,18 +958,48 @@ public class GameService {
             Card drawn = state.drawCard();
             if (drawn != null) {
                 state.discardCard(drawn);
-                if (drawn.getSuit() == CardSuit.SPADES && 
-                    "2345678910".contains(drawn.getValue().replace("10", "10"))) {
+                
+                // Broadcast check event
+                GameEvent checkEvent = GameEvent.cardCheck(player.getId(), player.getName(), drawn.getType().name(), drawn.getId());
+                checkEvent.setData(Map.of(
+                    "suit", drawn.getSuit().name(),
+                    "value", drawn.getValue()
+                ));
+                broadcastEvent(state.getRoomId(), checkEvent);
+
+                // Check for explosion (Spades 2-9)
+                boolean explode = drawn.getSuit() == CardSuit.SPADES &&
+                                  "23456789".contains(drawn.getValue());
+                // Handle 10 specifically if needed, but standard BANG deck usually has 2-9 Spades for Dynamite
+                // Re-verify specific card values if needed, but usually 2-9 of Spades triggers it.
+                // My previous code had "10" in the string check which was a bit weird with replace.
+                // Standard rule: Spades 2 through 9.
+                
+                if (explode) {
                     // Dynamite explodes - 3 damage
                     player.getInPlay().remove(dynamite);
                     state.discardCard(dynamite);
+                    broadcastEvent(state.getRoomId(), GameEvent.cardDiscarded(player.getId(), player.getName(), dynamite.getType().name(), dynamite.getId()));
+                    
                     applyDamage(state, player, 3, null);
+                    
+                    if (!player.isAlive()) {
+                        // If player died from dynamite, turn ends immediately (handled in handlePlayerDeath/checkGameEnd usually,
+                        // but we should ensure we don't process Jail if dead)
+                        return;
+                    }
                 } else {
                     // Pass dynamite to next player
                     player.getInPlay().remove(dynamite);
                     Player next = getNextAlivePlayer(state, player);
                     if (next != null) {
                         next.getInPlay().add(dynamite);
+                        // Broadcast PASS event
+                        broadcastEvent(state.getRoomId(), GameEvent.cardPassed(
+                            player.getId(), player.getName(),
+                            next.getId(), next.getName(),
+                            dynamite.getType().name(), dynamite.getId()
+                        ));
                     }
                 }
             }
@@ -897,10 +1017,24 @@ public class GameService {
             Card drawn = state.drawCard();
             if (drawn != null) {
                 state.discardCard(drawn);
+
+                GameEvent checkEvent = GameEvent.cardCheck(player.getId(), player.getName(), drawn.getType().name(), drawn.getId());
+                checkEvent.setData(Map.of(
+                        "suit", drawn.getSuit().name(),
+                        "value", drawn.getValue()
+                ));
+                broadcastEvent(state.getRoomId(), checkEvent);
+
+                // Broadcast Jail discard AFTER check
+                broadcastEvent(state.getRoomId(), GameEvent.cardDiscarded(player.getId(), player.getName(), jail.getType().name(), jail.getId()));
+
                 if (drawn.getSuit() != CardSuit.HEARTS) {
                     // Stays in jail - skip turn
                     endTurn(state);
+                    return;
                 }
+            } else {
+                broadcastEvent(state.getRoomId(), GameEvent.cardDiscarded(player.getId(), player.getName(), jail.getType().name(), jail.getId()));
             }
         }
     }

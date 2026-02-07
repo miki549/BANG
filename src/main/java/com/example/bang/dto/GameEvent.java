@@ -111,6 +111,21 @@ public class GameEvent {
                 .build();
     }
 
+    public static GameEvent cardPassed(String sourcePlayerId, String sourcePlayerName,
+                                       String targetPlayerId, String targetPlayerName,
+                                       String cardType, String cardId) {
+        return GameEvent.builder()
+                .type("CARD_PASSED")
+                .sourcePlayerId(sourcePlayerId)
+                .sourcePlayerName(sourcePlayerName)
+                .targetPlayerId(targetPlayerId)
+                .targetPlayerName(targetPlayerName)
+                .cardType(cardType)
+                .cardId(cardId)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+
     @Data
     @AllArgsConstructor
     public static class DamageData {

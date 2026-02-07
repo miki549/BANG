@@ -122,6 +122,21 @@ public class GameController {
         log.debug("Player {} responded to action in room {}", playerId, roomId);
     }
 
+    @MessageMapping("/game/pickGeneralStore")
+    public void pickGeneralStoreCard(@Payload GameMessage message, SimpMessageHeaderAccessor headerAccessor) {
+        String sessionId = headerAccessor.getSessionId();
+        String roomId = roomService.getRoomIdForSession(sessionId);
+        String playerId = roomService.getPlayerIdForSession(sessionId);
+
+        if (roomId == null || playerId == null) {
+            sendError(headerAccessor, "Not in a game");
+            return;
+        }
+
+        gameService.pickGeneralStoreCard(roomId, playerId, message.getCardId());
+        log.debug("Player {} picked card {} from General Store in room {}", playerId, message.getCardId(), roomId);
+    }
+
     @MessageMapping("/game/useAbility")
     public void useAbility(@Payload GameMessage message, SimpMessageHeaderAccessor headerAccessor) {
         String sessionId = headerAccessor.getSessionId();

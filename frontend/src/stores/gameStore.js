@@ -160,6 +160,12 @@ export const useGameStore = defineStore('game', () => {
     })
   }
 
+  function pickGeneralStoreCard(cardId) {
+    send('/app/game/pickGeneralStore', {
+      cardId
+    })
+  }
+
   // Message handlers
   function handleLobbyMessage(message) {
     console.log('handleLobbyMessage:', message.type, message)
@@ -312,6 +318,7 @@ export const useGameStore = defineStore('game', () => {
     discardCard,
     respondToAction,
     useAbility,
+    pickGeneralStoreCard,
     handleLobbyMessage,
     handleGameMessage,
     handleGameEvent,

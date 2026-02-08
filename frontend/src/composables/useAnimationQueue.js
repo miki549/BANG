@@ -1,11 +1,14 @@
 import { ref } from 'vue'
 import gsap from 'gsap'
+import { useSoundManager } from './useSoundManager'
 
 const queue = ref([])
 const isProcessing = ref(false)
 const animatingCardIds = ref(new Set())
 
 export function useAnimationQueue() {
+  const { playSound } = useSoundManager()
+
   function queueAnimation(event) {
     queue.value.push(event)
     if (!isProcessing.value) {
@@ -165,6 +168,9 @@ export function useAnimationQueue() {
     // Slight random offset for "stack" feel
     const randomRot = (Math.random() - 0.5) * 20
     
+    // Play sound at start of animation
+    playSound('draw')
+
     gsap.to(card, {
         x: endRect.left + endRect.width / 2 - 48,
         y: endRect.top + endRect.height / 2 - 72,
@@ -192,6 +198,9 @@ export function useAnimationQueue() {
 
     // Stealing is usually face down
     const card = createFloatingCard('BACK', startRect.left + startRect.width/2 - 48, startRect.top + startRect.height/2 - 72)
+
+    // Play sound for stealing (draw sound is appropriate)
+    playSound('draw')
 
     gsap.to(card, {
         x: endRect.left + endRect.width / 2 - 48,
@@ -222,6 +231,8 @@ export function useAnimationQueue() {
 
     // Create card with specific type (e.g. DYNAMITE)
     const card = createFloatingCard(event.cardType, startRect.left + startRect.width/2 - 48, startRect.top + startRect.height/2 - 72)
+    
+    playSound('play_card')
 
     // Animate arc to next player
     gsap.to(card, {
@@ -252,6 +263,8 @@ export function useAnimationQueue() {
     
     // Discard is face up
     const card = createFloatingCard(event.cardType, startRect.left + startRect.width/2 - 48, startRect.top + startRect.height/2 - 72)
+
+    playSound('play_card')
 
     gsap.to(card, {
         x: endRect.left + endRect.width / 2 - 48,

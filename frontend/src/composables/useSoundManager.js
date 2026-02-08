@@ -3,7 +3,7 @@ import { Howl } from 'howler'
 
 const sounds = ref({})
 const muted = ref(false)
-const volume = ref(0.7)
+const volume = ref(0.3)
 
 export function useSoundManager() {
   function initSounds() {

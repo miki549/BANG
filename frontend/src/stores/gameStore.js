@@ -121,7 +121,7 @@ export const useGameStore = defineStore('game', () => {
 
   function drawCards() {
     send('/app/game/draw', {})
-    playSound('draw')
+    // playSound('draw') - Moved to animation
   }
 
   function playCard(cardId, targetPlayerId = null, targetCardId = null) {
@@ -130,7 +130,7 @@ export const useGameStore = defineStore('game', () => {
       targetPlayerId,
       targetCardId
     })
-    playSound('play_card')
+    // playSound('play_card') - Moved to animation
   }
 
   function passTurn() {
@@ -164,7 +164,7 @@ export const useGameStore = defineStore('game', () => {
     send('/app/game/pickGeneralStore', {
       cardId
     })
-    playSound('draw')
+    // playSound('draw') - Moved to animation
   }
 
   // Message handlers
@@ -271,9 +271,6 @@ export const useGameStore = defineStore('game', () => {
         break
       case 'PLAYER_ELIMINATED':
         playSound('death')
-        break
-      case 'CARD_DRAWN':
-        playSound('draw')
         break
     }
 

@@ -93,7 +93,7 @@
         </div>
 
         <!-- RIGHT: Blue Cards (Vertical Stack) -->
-        <div class="w-24 h-full border-l border-amber-800/50 bg-stone-800/50 relative flex-shrink-0 flex flex-col overflow-visible z-20 group/stack">
+        <div class="w-24 h-full border-l border-amber-800/50 bg-stone-800/50 relative flex-shrink-0 flex flex-col overflow-visible z-20 group/stack" data-blue-cards>
             <div class="relative w-full h-full flex flex-col items-center justify-start">
                <div class="flex flex-col items-center -space-y-24 group-hover/stack:-space-y-16 transition-all duration-300 w-full">
                   <div v-for="(card, index) in tableCards" :key="card.id || index"
@@ -103,6 +103,7 @@
                      <div class="h-full aspect-[2/3] rounded overflow-hidden shadow-md relative transition-all duration-300 ease-out group-hover/card:!z-[100] group-hover/card:scale-[1.5] group-hover/card:-translate-x-24 group-hover/card:translate-y-4 origin-center cursor-help delay-75 group-hover/card:delay-0"
                           :class="{ 'opacity-0': animatingCardIds.has(card.id) }"
                           :title="card.type"
+                          @mouseenter="playSound('card_select')"
                           @wheel="handleWheel($event, { imageSrc: getCardImage(card.type), title: card.type, suit: card.suit, value: card.value })">
                        
                        <img :src="getCardImage(card.type)" class="w-full h-full object-contain" />
@@ -135,8 +136,10 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useAnimationQueue } from '../composables/useAnimationQueue'
+import { useSoundManager } from '../composables/useSoundManager'
 
 const { animatingCardIds } = useAnimationQueue()
+const { playSound } = useSoundManager()
 
 const props = defineProps({
   player: {

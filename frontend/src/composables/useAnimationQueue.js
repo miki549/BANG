@@ -227,7 +227,11 @@ export function useAnimationQueue() {
     }
 
     const startRect = sourceEl.getBoundingClientRect()
-    const endRect = targetEl.getBoundingClientRect()
+
+    // Find the blue cards slot within the destination player element
+    const blueCardsEl = targetEl.querySelector('[data-blue-cards]')
+    const finalDestEl = blueCardsEl || targetEl
+    const endRect = finalDestEl.getBoundingClientRect()
 
     // Create card with specific type (e.g. DYNAMITE)
     const card = createFloatingCard(event.cardType, startRect.left + startRect.width/2 - 48, startRect.top + startRect.height/2 - 72)
@@ -243,6 +247,7 @@ export function useAnimationQueue() {
         duration: 0.8,
         ease: 'power2.inOut',
         onComplete: () => {
+            playSound('card_drop')
             card.remove()
             resolve()
         }
@@ -274,6 +279,7 @@ export function useAnimationQueue() {
         duration: 0.5,
         ease: 'power2.out',
         onComplete: () => {
+            playSound('card_drop')
             card.remove()
             resolve()
         }
@@ -378,14 +384,21 @@ export function useAnimationQueue() {
     if (isBlueCard(cardType)) {
         // For blue cards, move to player board after center
         const destEl = (cardType === 'JAIL' && targetEl) ? targetEl : sourceEl
-        const destRect = destEl.getBoundingClientRect()
+        
+        // Find the blue cards slot within the destination player element
+        const blueCardsEl = destEl.querySelector('[data-blue-cards]')
+        const finalDestEl = blueCardsEl || destEl
+        const destRect = finalDestEl.getBoundingClientRect()
         
         timeline.to(floatingCard, {
             x: destRect.left + destRect.width / 2 - 48,
             y: destRect.top + destRect.height / 2 - 72,
             scale: 0.5, // Small size for board
             duration: 0.6,
-            ease: 'power2.inOut'
+            ease: 'power2.inOut',
+            onComplete: () => {
+                playSound('card_drop')
+            }
         }, 'atCenter+=0.5') // Wait 0.5s at center
         
         timeline.to(floatingCard, {
@@ -404,7 +417,10 @@ export function useAnimationQueue() {
                 scale: 1,
                 rotation: (Math.random() - 0.5) * 30,
                 duration: 0.5,
-                ease: 'power2.inOut'
+                ease: 'power2.inOut',
+                onComplete: () => {
+                    playSound('card_drop')
+                }
             }, 'atCenter+=0.5')
         } else {
             // Fallback if discard pile not found
@@ -627,7 +643,17 @@ export function useAnimationQueue() {
         scale: 1,
         rotation: 360, // Spin while moving
         duration: 0.6,
-        ease: 'power2.in'
+        ease: 'power2.in',
+        onComplete: () => {
+            playSound('card_drop')
+            
+            // If dynamite exploded (Spades 2-9), play explode sound
+            if (event.data && event.cardType === 'DYNAMITE' &&
+                event.data.suit === 'SPADES' &&
+                event.data.value >= 2 && event.data.value <= 9) {
+                setTimeout(() => playSound('explode'), 200)
+            }
+        }
     }, "<")
   }
 

@@ -15,6 +15,7 @@ public class GameMessage {
     private String targetPlayerId;
     private String cardId;
     private String targetCardId;
+    private java.util.List<String> cardIds;
     private String roomId;
     private Object payload;
 }

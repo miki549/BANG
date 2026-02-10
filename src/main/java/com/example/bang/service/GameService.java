@@ -101,6 +101,68 @@ public class GameService {
         }
     }
 
+    public void selectKitCarlsonCards(String roomId, String playerId, List<String> keptCardIds) {
+        GameState state = games.get(roomId);
+        if (state == null) return;
+
+        Player player = state.getPlayerById(playerId);
+        if (player == null || !player.getId().equals(state.getCurrentPlayer().getId())) {
+            return;
+        }
+
+        if (state.getPhase() != GamePhase.KIT_CARLSON_PHASE) {
+            return;
+        }
+
+        if (player.getCharacter() != CharacterType.KIT_CARLSON) {
+            return;
+        }
+
+        List<Card> drawnCards = state.getDrawnCardsToChooseFrom();
+        if (drawnCards == null || drawnCards.isEmpty()) {
+            return;
+        }
+
+        if (keptCardIds == null || keptCardIds.size() != 2) {
+            return;
+        }
+
+        List<Card> keptCards = new ArrayList<>();
+        Card returnedCard = null;
+
+        for (Card card : drawnCards) {
+            if (keptCardIds.contains(card.getId())) {
+                keptCards.add(card);
+            } else {
+                returnedCard = card;
+            }
+        }
+
+        if (keptCards.size() != 2) {
+            // Invalid selection (e.g. bad IDs)
+            return;
+        }
+
+        // Add kept cards to hand
+        for (Card card : keptCards) {
+            player.addCardToHand(card);
+            // We can broadcast a generic "drawn" event so others know they got cards,
+            // but without revealing which ones (though standard draw reveals nothing anyway)
+        }
+        // Broadcast that player drew 2 cards (effectively)
+        broadcastEvent(roomId, GameEvent.cardDrawn(player.getId(), player.getName()));
+        broadcastEvent(roomId, GameEvent.cardDrawn(player.getId(), player.getName()));
+
+        // Return the other card to top of deck
+        if (returnedCard != null) {
+            state.getDrawPile().add(0, returnedCard);
+        }
+
+        state.setDrawnCardsToChooseFrom(new ArrayList<>());
+        state.setPhase(GamePhase.PLAY_PHASE);
+        broadcastGameState(roomId);
+    }
+
     public void drawCards(String roomId, String playerId) {
         GameState state = games.get(roomId);
         if (state == null) return;
@@ -119,13 +181,17 @@ public class GameService {
         
         // Kit Carlson looks at 3 cards
         if (player.getCharacter() == CharacterType.KIT_CARLSON) {
-            // Special handling needed - for now just draw 2
-            for (int i = 0; i < cardsToDraw; i++) {
+            List<Card> drawnCards = new ArrayList<>();
+            for (int i = 0; i < 3; i++) {
                 Card card = state.drawCard();
                 if (card != null) {
-                    player.addCardToHand(card);
+                    drawnCards.add(card);
                 }
             }
+            state.setDrawnCardsToChooseFrom(drawnCards);
+            state.setPhase(GamePhase.KIT_CARLSON_PHASE);
+            broadcastGameState(roomId);
+            return;
         } else if (player.getCharacter() == CharacterType.BLACK_JACK) {
             // Draw first card
             Card first = state.drawCard();

@@ -8,5 +8,6 @@ public enum GamePhase {
     DISCARD_PHASE,        // Player must discard excess cards
     REACTION_PHASE,       // Waiting for target to respond (e.g., BANG -> MISSED)
     GENERAL_STORE_PHASE,  // Players choosing cards from General Store
+    KIT_CARLSON_PHASE,    // Kit Carlson choosing 2 cards out of 3
     GAME_OVER             // Game ended
 }

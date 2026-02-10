@@ -28,6 +28,7 @@ public class GameStateView {
     private int missedCardsRequired;
     private java.util.Set<String> usedReactionAbilities;
     private List<Card> generalStoreCards;
+    private List<Card> drawnCardsToChooseFrom;
     private String winnerId;
     private Role winningTeam;
     private List<GameEvent> recentEvents;
@@ -63,6 +64,13 @@ public class GameStateView {
                 .missedCardsRequired(state.getMissedCardsRequired())
                 .usedReactionAbilities(state.getUsedReactionAbilities())
                 .generalStoreCards(state.getGeneralStoreCards())
+                .drawnCardsToChooseFrom(
+                    state.getPhase() == GamePhase.KIT_CARLSON_PHASE &&
+                    currentPlayer != null &&
+                    currentPlayer.getId().equals(requestingPlayerId)
+                        ? state.getDrawnCardsToChooseFrom()
+                        : null
+                )
                 .winnerId(state.getWinnerId())
                 .winningTeam(state.getWinningTeam())
                 .build();

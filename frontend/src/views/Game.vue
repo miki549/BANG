@@ -107,6 +107,44 @@
            </div>
       </div>
 
+      <!-- Kit Carlson Selection Overlay -->
+      <div v-if="phase === 'KIT_CARLSON_PHASE' && isMyTurn"
+           class="fixed inset-0 bg-black/60 z-50 flex flex-col items-center justify-center pointer-events-none">
+           <div class="bg-western-dark/95 border-4 border-western-gold rounded-2xl p-8 max-w-4xl pointer-events-auto text-center">
+                <h3 class="text-3xl font-western text-western-gold mb-2">
+                    Kit Carlson's Ability
+                </h3>
+                <p class="text-xl text-western-sand mb-8">
+                    Choose <span class="text-western-gold font-bold">2</span> cards to keep. The third will be returned to the deck.
+                </p>
+
+                <div class="flex justify-center gap-6 flex-wrap mb-8">
+                    <div v-for="card in gameState?.drawnCardsToChooseFrom"
+                         :key="card.id"
+                         class="transform transition-transform hover:scale-105 cursor-pointer relative"
+                         @click="toggleKitCarlsonSelection(card)">
+                        <CardComponent :card="card" class="w-32 h-48 shadow-2xl transition-all"
+                                     :class="kitCarlsonSelectedIds.has(card.id) ? 'ring-4 ring-green-500 scale-105' : 'opacity-80 hover:opacity-100'" />
+                        
+                        <!-- Checkmark badge -->
+                        <div v-if="kitCarlsonSelectedIds.has(card.id)"
+                             class="absolute -top-3 -right-3 bg-green-500 text-white rounded-full p-1 shadow-lg z-10">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <button @click="confirmKitCarlsonSelection"
+                        class="btn-western px-8 py-3 text-lg"
+                        :disabled="kitCarlsonSelectedIds.size !== 2"
+                        :class="{'opacity-50 cursor-not-allowed': kitCarlsonSelectedIds.size !== 2}">
+                    Confirm Selection ({{ kitCarlsonSelectedIds.size }}/2)
+                </button>
+           </div>
+      </div>
+
       <!-- Current Player Area (Bottom) -->
       <div class="absolute bottom-0 left-0 right-0 p-2 flex flex-col items-center justify-end z-30
                   bg-gradient-to-t from-black/90 via-black/70 to-transparent pt-12">
@@ -379,6 +417,7 @@ const inspectedCard = ref(null)
 const selectingTargetCardPlayerId = ref(null)
 const flashingIndices = ref(new Set())
 const flashingGreenIndices = ref(new Set())
+const kitCarlsonSelectedIds = ref(new Set())
 
 const roomId = computed(() => route.params.roomId)
 const gameState = computed(() => gameStore.gameState)
@@ -423,6 +462,7 @@ const phaseDisplay = computed(() => {
     'DISCARD_PHASE': 'Discard Phase',
     'REACTION_PHASE': 'Reaction!',
     'GENERAL_STORE_PHASE': 'General Store',
+    'KIT_CARLSON_PHASE': 'Kit Carlson Ability',
     'GAME_OVER': 'Game Over'
   }
   return phases[phase.value] || phase.value
@@ -736,6 +776,22 @@ function useJourdonnais() {
 function handleGeneralStorePick(card) {
     if (!needsToRespond.value) return;
     gameStore.pickGeneralStoreCard(card.id);
+}
+
+function toggleKitCarlsonSelection(card) {
+    if (kitCarlsonSelectedIds.value.has(card.id)) {
+        kitCarlsonSelectedIds.value.delete(card.id)
+    } else {
+        if (kitCarlsonSelectedIds.value.size < 2) {
+            kitCarlsonSelectedIds.value.add(card.id)
+        }
+    }
+}
+
+function confirmKitCarlsonSelection() {
+    if (kitCarlsonSelectedIds.value.size !== 2) return;
+    gameStore.selectKitCarlsonCards(Array.from(kitCarlsonSelectedIds.value));
+    kitCarlsonSelectedIds.value.clear();
 }
 
 function getActionPrompt() {

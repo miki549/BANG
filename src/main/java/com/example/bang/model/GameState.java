@@ -42,6 +42,9 @@ public class GameState {
     
     @Builder.Default
     private List<Card> generalStoreCards = new ArrayList<>();
+
+    @Builder.Default
+    private List<Card> drawnCardsToChooseFrom = new ArrayList<>();
     
     private String winnerId;
     private Role winningTeam;

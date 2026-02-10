@@ -167,6 +167,12 @@ export const useGameStore = defineStore('game', () => {
     // playSound('draw') - Moved to animation
   }
 
+  function selectKitCarlsonCards(cardIds) {
+    send('/app/game/kitCarlsonSelect', {
+      cardIds
+    })
+  }
+
   // Message handlers
   function handleLobbyMessage(message) {
     console.log('handleLobbyMessage:', message.type, message)
@@ -320,6 +326,7 @@ export const useGameStore = defineStore('game', () => {
     respondToAction,
     useAbility,
     pickGeneralStoreCard,
+    selectKitCarlsonCards,
     handleLobbyMessage,
     handleGameMessage,
     handleGameEvent,

@@ -45,6 +45,21 @@ public class GameController {
         log.info("Sent game state to player {} in room {}", playerId, roomId);
     }
 
+    @MessageMapping("/game/kitCarlsonSelect")
+    public void selectKitCarlsonCards(@Payload GameMessage message, SimpMessageHeaderAccessor headerAccessor) {
+        String sessionId = headerAccessor.getSessionId();
+        String roomId = roomService.getRoomIdForSession(sessionId);
+        String playerId = roomService.getPlayerIdForSession(sessionId);
+
+        if (roomId == null || playerId == null) {
+            sendError(headerAccessor, "Not in a game");
+            return;
+        }
+
+        gameService.selectKitCarlsonCards(roomId, playerId, message.getCardIds());
+        log.debug("Player {} selected Kit Carlson cards in room {}", playerId, roomId);
+    }
+
     @MessageMapping("/game/draw")
     public void drawCards(SimpMessageHeaderAccessor headerAccessor) {
         String sessionId = headerAccessor.getSessionId();

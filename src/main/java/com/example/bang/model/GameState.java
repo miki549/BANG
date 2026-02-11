@@ -46,6 +46,11 @@ public class GameState {
     @Builder.Default
     private List<Card> drawnCardsToChooseFrom = new ArrayList<>();
     
+    @Builder.Default
+    private List<Card> luckyDukeCardsToChooseFrom = new ArrayList<>();
+    private String luckyDukeContext; // "BARREL", "JAIL", "DYNAMITE"
+    private String luckyDukeSourceCardId; // ID of the Barrel/Jail/Dynamite being checked
+
     private String winnerId;
     private Role winningTeam;
 

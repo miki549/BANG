@@ -9,5 +9,6 @@ public enum GamePhase {
     REACTION_PHASE,       // Waiting for target to respond (e.g., BANG -> MISSED)
     GENERAL_STORE_PHASE,  // Players choosing cards from General Store
     KIT_CARLSON_PHASE,    // Kit Carlson choosing 2 cards out of 3
+    LUCKY_DUKE_RESOLVE,   // Lucky Duke choosing 1 card result out of 2
     GAME_OVER             // Game ended
 }

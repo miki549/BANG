@@ -25,7 +25,21 @@ public class GameService {
         int playerCount = roomPlayers.size();
 
         List<Role> roles = deckBuilder.getRolesForPlayerCount(playerCount);
-        List<CharacterType> characters = deckBuilder.getRandomCharacters(playerCount);
+        List<CharacterType> characters = new ArrayList<>(deckBuilder.getRandomCharacters(playerCount));
+
+        // Ensure Kit Carlson and Lucky Duke are always present for testing
+        if (playerCount >= 2) {
+            if (!characters.contains(CharacterType.KIT_CARLSON)) {
+                int slot = 0;
+                if (characters.get(slot) == CharacterType.LUCKY_DUKE) slot = 1;
+                characters.set(slot, CharacterType.KIT_CARLSON);
+            }
+            if (!characters.contains(CharacterType.LUCKY_DUKE)) {
+                int slot = 0;
+                if (characters.get(slot) == CharacterType.KIT_CARLSON) slot = 1;
+                characters.set(slot, CharacterType.LUCKY_DUKE);
+            }
+        }
         List<Card> deck = deckBuilder.createDeck();
 
         List<Player> players = new ArrayList<>();
@@ -947,8 +961,36 @@ public class GameService {
 
         if (!hasAbility) return;
         
+        Card checkCard = null;
+
+        // Lucky Duke Check
+        if (player.getCharacter() == CharacterType.LUCKY_DUKE) {
+            Card c1 = state.drawCard();
+            Card c2 = state.drawCard();
+            if (c1 != null && c2 != null) {
+                state.discardCard(c1);
+                state.discardCard(c2);
+
+                List<Card> drawnCards = new ArrayList<>();
+                drawnCards.add(c1);
+                drawnCards.add(c2);
+
+                state.setLuckyDukeCardsToChooseFrom(drawnCards);
+                state.setLuckyDukeContext("BARREL:" + abilityId); // Context stores "TYPE:DATA"
+                state.setPhase(GamePhase.LUCKY_DUKE_RESOLVE);
+                broadcastGameState(roomId);
+                return;
+            } else if (c1 != null) {
+                // If only 1 card available, use it directly
+                checkCard = c1;
+            }
+        }
+
         // Draw card for check
-        Card checkCard = state.drawCard();
+        if (checkCard == null) {
+            checkCard = state.drawCard();
+        }
+        
         if (checkCard != null) {
             state.discardCard(checkCard);
             
@@ -962,25 +1004,6 @@ public class GameService {
             broadcastEvent(roomId, checkEvent);
             
             boolean success = checkCard.getSuit() == CardSuit.HEARTS;
-            
-            // Lucky Duke: draw second card and choose best
-            if (player.getCharacter() == CharacterType.LUCKY_DUKE) {
-                Card checkCard2 = state.drawCard();
-                if (checkCard2 != null) {
-                     state.discardCard(checkCard2);
-                     
-                     GameEvent checkEvent2 = GameEvent.cardCheck(player.getId(), player.getName(), checkCard2.getType().name(), checkCard2.getId());
-                     checkEvent2.setData(Map.of(
-                        "suit", checkCard2.getSuit().name(),
-                        "value", checkCard2.getValue()
-                     ));
-                     broadcastEvent(roomId, checkEvent2);
-                     
-                     if (checkCard2.getSuit() == CardSuit.HEARTS) {
-                         success = true;
-                     }
-                }
-            }
 
             if (success) {
                  int remaining = state.getMissedCardsRequired() - 1;
@@ -1020,8 +1043,35 @@ public class GameService {
                 .findFirst().orElse(null);
 
         if (dynamite != null) {
+            Card drawn = null;
+
+            // Lucky Duke Check
+            if (player.getCharacter() == CharacterType.LUCKY_DUKE) {
+                Card c1 = state.drawCard();
+                Card c2 = state.drawCard();
+                if (c1 != null && c2 != null) {
+                    state.discardCard(c1);
+                    state.discardCard(c2);
+
+                    List<Card> drawnCards = new ArrayList<>();
+                    drawnCards.add(c1);
+                    drawnCards.add(c2);
+
+                    state.setLuckyDukeCardsToChooseFrom(drawnCards);
+                    state.setLuckyDukeContext("DYNAMITE:" + dynamite.getId());
+                    state.setPhase(GamePhase.LUCKY_DUKE_RESOLVE);
+                    broadcastGameState(state.getRoomId());
+                    return;
+                } else if (c1 != null) {
+                    drawn = c1;
+                }
+            }
+
             // Draw for dynamite check
-            Card drawn = state.drawCard();
+            if (drawn == null) {
+                drawn = state.drawCard();
+            }
+            
             if (drawn != null) {
                 state.discardCard(drawn);
                 
@@ -1033,45 +1083,17 @@ public class GameService {
                 ));
                 broadcastEvent(state.getRoomId(), checkEvent);
 
-                // Check for explosion (Spades 2-9)
-                boolean explode = drawn.getSuit() == CardSuit.SPADES &&
-                                  "23456789".contains(drawn.getValue());
-                // Handle 10 specifically if needed, but standard BANG deck usually has 2-9 Spades for Dynamite
-                // Re-verify specific card values if needed, but usually 2-9 of Spades triggers it.
-                // My previous code had "10" in the string check which was a bit weird with replace.
-                // Standard rule: Spades 2 through 9.
-                
-                if (explode) {
-                    // Dynamite explodes - 3 damage
-                    player.getInPlay().remove(dynamite);
-                    state.discardCard(dynamite);
-                    broadcastEvent(state.getRoomId(), GameEvent.cardDiscarded(player.getId(), player.getName(), dynamite.getType().name(), dynamite.getId()));
-                    
-                    applyDamage(state, player, 3, null);
-                    
-                    if (!player.isAlive()) {
-                        // If player died from dynamite, turn ends immediately (handled in handlePlayerDeath/checkGameEnd usually,
-                        // but we should ensure we don't process Jail if dead)
-                        return;
-                    }
-                } else {
-                    // Pass dynamite to next player
-                    player.getInPlay().remove(dynamite);
-                    Player next = getNextAlivePlayer(state, player);
-                    if (next != null) {
-                        next.getInPlay().add(dynamite);
-                        // Broadcast PASS event
-                        broadcastEvent(state.getRoomId(), GameEvent.cardPassed(
-                            player.getId(), player.getName(),
-                            next.getId(), next.getName(),
-                            dynamite.getType().name(), dynamite.getId()
-                        ));
-                    }
-                }
+                boolean explode = resolveDynamiteCheck(drawn);
+                handleDynamiteResult(state, player, dynamite, explode);
+                if (!player.isAlive()) return; // Stop if died
             }
         }
 
         // Check for Jail
+        processJailCheck(state, player);
+    }
+    
+    private void processJailCheck(GameState state, Player player) {
         Card jail = player.getInPlay().stream()
                 .filter(c -> c.getType() == CardType.JAIL)
                 .findFirst().orElse(null);
@@ -1079,8 +1101,38 @@ public class GameService {
         if (jail != null) {
             player.getInPlay().remove(jail);
             state.discardCard(jail);
+
+            // Broadcast Jail discard
+            broadcastEvent(state.getRoomId(), GameEvent.cardDiscarded(player.getId(), player.getName(), jail.getType().name(), jail.getId()));
+
+            Card drawn = null;
+
+            // Lucky Duke Check
+            if (player.getCharacter() == CharacterType.LUCKY_DUKE) {
+                Card c1 = state.drawCard();
+                Card c2 = state.drawCard();
+                if (c1 != null && c2 != null) {
+                    state.discardCard(c1);
+                    state.discardCard(c2);
+
+                    List<Card> drawnCards = new ArrayList<>();
+                    drawnCards.add(c1);
+                    drawnCards.add(c2);
+
+                    state.setLuckyDukeCardsToChooseFrom(drawnCards);
+                    state.setLuckyDukeContext("JAIL:" + jail.getId());
+                    state.setPhase(GamePhase.LUCKY_DUKE_RESOLVE);
+                    broadcastGameState(state.getRoomId());
+                    return;
+                } else if (c1 != null) {
+                    drawn = c1;
+                }
+            }
             
-            Card drawn = state.drawCard();
+            if (drawn == null) {
+                drawn = state.drawCard();
+            }
+
             if (drawn != null) {
                 state.discardCard(drawn);
 
@@ -1091,9 +1143,6 @@ public class GameService {
                 ));
                 broadcastEvent(state.getRoomId(), checkEvent);
 
-                // Broadcast Jail discard AFTER check
-                broadcastEvent(state.getRoomId(), GameEvent.cardDiscarded(player.getId(), player.getName(), jail.getType().name(), jail.getId()));
-
                 if (drawn.getSuit() != CardSuit.HEARTS) {
                     // Stays in jail - skip turn
                     endTurn(state);
@@ -1103,6 +1152,119 @@ public class GameService {
                 broadcastEvent(state.getRoomId(), GameEvent.cardDiscarded(player.getId(), player.getName(), jail.getType().name(), jail.getId()));
             }
         }
+    }
+
+    private boolean resolveDynamiteCheck(Card card) {
+        return card.getSuit() == CardSuit.SPADES && "23456789".contains(card.getValue());
+    }
+
+    private void handleDynamiteResult(GameState state, Player player, Card dynamite, boolean explode) {
+        if (explode) {
+            // Dynamite explodes - 3 damage
+            player.getInPlay().remove(dynamite);
+            state.discardCard(dynamite);
+            broadcastEvent(state.getRoomId(), GameEvent.cardDiscarded(player.getId(), player.getName(), dynamite.getType().name(), dynamite.getId()));
+            
+            applyDamage(state, player, 3, null);
+        } else {
+            // Pass dynamite to next player
+            player.getInPlay().remove(dynamite);
+            Player next = getNextAlivePlayer(state, player);
+            if (next != null) {
+                next.getInPlay().add(dynamite);
+                broadcastEvent(state.getRoomId(), GameEvent.cardPassed(
+                    player.getId(), player.getName(),
+                    next.getId(), next.getName(),
+                    dynamite.getType().name(), dynamite.getId()
+                ));
+            }
+        }
+    }
+
+    public void handleLuckyDukeChoice(String roomId, String playerId, String cardId) {
+        GameState state = games.get(roomId);
+        if (state == null) return;
+        if (state.getPhase() != GamePhase.LUCKY_DUKE_RESOLVE) return;
+
+        Player player = state.getPlayerById(playerId);
+        if (player == null) return;
+        
+        // Validation: must be current player (for Dynamite/Jail) or pending reaction player (for Barrel)
+        boolean isCurrent = player.getId().equals(state.getCurrentPlayer().getId());
+        boolean isPending = player.getId().equals(state.getPendingActionPlayerId());
+        
+        if (!isCurrent && !isPending) return;
+
+        // Verify card choice
+        Card chosenCard = state.getLuckyDukeCardsToChooseFrom().stream()
+                .filter(c -> c.getId().equals(cardId))
+                .findFirst()
+                .orElse(null);
+                
+        if (chosenCard == null) return;
+        
+        // Broadcast the choice (visual effect)
+        GameEvent checkEvent = GameEvent.cardCheck(player.getId(), player.getName(), chosenCard.getType().name(), chosenCard.getId());
+        checkEvent.setData(Map.of(
+            "suit", chosenCard.getSuit().name(),
+            "value", chosenCard.getValue()
+        ));
+        broadcastEvent(roomId, checkEvent);
+        
+        String context = state.getLuckyDukeContext();
+        String[] parts = context.split(":");
+        String type = parts[0];
+        String data = parts.length > 1 ? parts[1] : "";
+
+        // Clear Lucky Duke state
+        state.setLuckyDukeCardsToChooseFrom(new ArrayList<>());
+        state.setLuckyDukeContext(null);
+        
+        // Resume logic based on type
+        if ("BARREL".equals(type)) {
+            // Restore context for Barrel/Ability
+            state.setPhase(GamePhase.REACTION_PHASE); // Go back to reaction phase logic
+            
+            boolean success = chosenCard.getSuit() == CardSuit.HEARTS;
+            if (success) {
+                 int remaining = state.getMissedCardsRequired() - 1;
+                 state.setMissedCardsRequired(remaining);
+
+                 if (remaining <= 0) {
+                     advanceToNextReactionPlayer(state);
+                 }
+            } else {
+                state.getUsedReactionAbilities().add(data); // data is abilityId
+            }
+        } else if ("DYNAMITE".equals(type)) {
+             // We are at start of turn, phase is technically DRAW_PHASE but we interrupted processTurnStart
+             state.setPhase(GamePhase.DRAW_PHASE);
+             
+             // Re-fetch dynamite (it's still in play)
+             Card dynamite = player.getInPlay().stream()
+                .filter(c -> c.getType() == CardType.DYNAMITE)
+                .findFirst().orElse(null);
+             
+             if (dynamite != null) {
+                 boolean explode = resolveDynamiteCheck(chosenCard);
+                 handleDynamiteResult(state, player, dynamite, explode);
+             }
+             
+             if (player.isAlive()) {
+                 // Continue to Jail check
+                 processJailCheck(state, player);
+             }
+        } else if ("JAIL".equals(type)) {
+            state.setPhase(GamePhase.DRAW_PHASE);
+            
+            if (chosenCard.getSuit() != CardSuit.HEARTS) {
+                // Stays in jail - skip turn
+                endTurn(state);
+            }
+            // Else: freed, continue turn (nothing else to do, next is standard draw phase interaction)
+        }
+        
+        broadcastGameState(roomId);
     }
 
     private Player getNextAlivePlayer(GameState state, Player current) {

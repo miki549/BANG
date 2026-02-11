@@ -29,6 +29,8 @@ public class GameStateView {
     private java.util.Set<String> usedReactionAbilities;
     private List<Card> generalStoreCards;
     private List<Card> drawnCardsToChooseFrom;
+    private List<Card> luckyDukeCardsToChooseFrom;
+    private String luckyDukeContext;
     private String winnerId;
     private Role winningTeam;
     private List<GameEvent> recentEvents;
@@ -71,6 +73,14 @@ public class GameStateView {
                         ? state.getDrawnCardsToChooseFrom()
                         : null
                 )
+                .luckyDukeCardsToChooseFrom(
+                        state.getPhase() == GamePhase.LUCKY_DUKE_RESOLVE &&
+                        ((state.getCurrentPlayer() != null && state.getCurrentPlayer().getId().equals(requestingPlayerId)) ||
+                         (state.getPendingActionPlayerId() != null && state.getPendingActionPlayerId().equals(requestingPlayerId)))
+                            ? state.getLuckyDukeCardsToChooseFrom()
+                            : null
+                )
+                .luckyDukeContext(state.getLuckyDukeContext())
                 .winnerId(state.getWinnerId())
                 .winningTeam(state.getWinningTeam())
                 .build();

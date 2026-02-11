@@ -84,8 +84,8 @@
 
       <!-- General Store Overlay -->
       <div v-if="phase === 'GENERAL_STORE_PHASE'"
-           class="fixed inset-0 bg-black/60 z-50 flex flex-col items-center justify-center pointer-events-none">
-           <div class="bg-western-dark/95 border-4 border-western-gold rounded-2xl p-8 max-w-4xl pointer-events-auto">
+           class="fixed inset-0 bg-black/60 z-[140] flex flex-col items-center justify-center pointer-events-auto">
+           <div class="bg-western-dark/95 border-4 border-western-gold rounded-2xl p-8 max-w-4xl">
                 <h3 class="text-3xl font-western text-western-gold mb-8 text-center">
                     General Store
                 </h3>
@@ -99,9 +99,9 @@
                 <div class="flex justify-center gap-6 flex-wrap">
                     <div v-for="card in gameState?.generalStoreCards"
                          :key="card.id"
-                         class="transform transition-transform hover:scale-110 cursor-pointer"
+                         class="transform transition-transform hover:scale-105 cursor-pointer"
                          @click="handleGeneralStorePick(card)">
-                        <CardComponent :card="card" class="w-32 h-48 shadow-2xl" :class="{'ring-4 ring-green-500': needsToRespond}" />
+                        <CardComponent :card="card" class="w-32 h-48 shadow-2xl" :class="{'ring-4 ring-green-500': needsToRespond}" :animate-hover="false" />
                     </div>
                 </div>
            </div>
@@ -109,8 +109,8 @@
 
       <!-- Kit Carlson Selection Overlay -->
       <div v-if="phase === 'KIT_CARLSON_PHASE' && isMyTurn"
-           class="fixed inset-0 bg-black/60 z-50 flex flex-col items-center justify-center pointer-events-none">
-           <div class="bg-western-dark/95 border-4 border-western-gold rounded-2xl p-8 max-w-4xl pointer-events-auto text-center">
+           class="fixed inset-0 bg-black/60 z-[140] flex flex-col items-center justify-center pointer-events-auto">
+           <div class="bg-western-dark/95 border-4 border-western-gold rounded-2xl p-8 max-w-4xl text-center">
                 <h3 class="text-3xl font-western text-western-gold mb-2">
                     Kit Carlson's Ability
                 </h3>
@@ -124,7 +124,8 @@
                          class="transform transition-transform hover:scale-105 cursor-pointer relative"
                          @click="toggleKitCarlsonSelection(card)">
                         <CardComponent :card="card" class="w-32 h-48 shadow-2xl transition-all"
-                                     :class="kitCarlsonSelectedIds.has(card.id) ? 'ring-4 ring-green-500 scale-105' : 'opacity-80 hover:opacity-100'" />
+                                     :class="kitCarlsonSelectedIds.has(card.id) ? 'ring-4 ring-green-500 scale-105' : 'opacity-80 hover:opacity-100'"
+                                     :animate-hover="false" />
                         
                         <!-- Checkmark badge -->
                         <div v-if="kitCarlsonSelectedIds.has(card.id)"
@@ -142,6 +143,31 @@
                         :class="{'opacity-50 cursor-not-allowed': kitCarlsonSelectedIds.size !== 2}">
                     Confirm Selection ({{ kitCarlsonSelectedIds.size }}/2)
                 </button>
+           </div>
+      </div>
+
+      <!-- Lucky Duke Selection Overlay -->
+      <div v-if="phase === 'LUCKY_DUKE_RESOLVE' && ((gameState?.luckyDukeContext?.startsWith('BARREL') && needsToRespond) || (!gameState?.luckyDukeContext?.startsWith('BARREL') && isMyTurn))"
+           class="fixed inset-0 bg-black/60 z-[140] flex flex-col items-center justify-center pointer-events-auto">
+           <div class="bg-western-dark/95 border-4 border-western-gold rounded-2xl p-8 max-w-4xl text-center">
+                <h3 class="text-3xl font-western text-western-gold mb-2">
+                    Lucky Duke's Ability
+                </h3>
+                <p class="text-xl text-western-sand mb-8">
+                    Choose a card result for the <span class="text-western-gold font-bold">{{ gameState?.luckyDukeContext?.split(':')[0] }}</span> check. Both cards will be discarded.
+                </p>
+
+                <div class="flex justify-center gap-12 flex-wrap mb-8">
+                    <div v-for="card in gameState?.luckyDukeCardsToChooseFrom"
+                         :key="card.id"
+                         class="transform transition-transform hover:scale-105 cursor-pointer relative group"
+                         @click="confirmLuckyDukeSelection(card)">
+                        <CardComponent :card="card" class="w-32 h-48 shadow-2xl transition-all group-hover:ring-4 ring-western-gold" :animate-hover="false" />
+                        <div class="absolute -bottom-8 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity text-western-gold font-bold text-lg">
+                            Choose This
+                        </div>
+                    </div>
+                </div>
            </div>
       </div>
 
@@ -463,6 +489,7 @@ const phaseDisplay = computed(() => {
     'REACTION_PHASE': 'Reaction!',
     'GENERAL_STORE_PHASE': 'General Store',
     'KIT_CARLSON_PHASE': 'Kit Carlson Ability',
+    'LUCKY_DUKE_RESOLVE': 'Lucky Duke Ability',
     'GAME_OVER': 'Game Over'
   }
   return phases[phase.value] || phase.value
@@ -792,6 +819,10 @@ function confirmKitCarlsonSelection() {
     if (kitCarlsonSelectedIds.value.size !== 2) return;
     gameStore.selectKitCarlsonCards(Array.from(kitCarlsonSelectedIds.value));
     kitCarlsonSelectedIds.value.clear();
+}
+
+function confirmLuckyDukeSelection(card) {
+    gameStore.chooseLuckyDukeCard(card.id);
 }
 
 function getActionPrompt() {

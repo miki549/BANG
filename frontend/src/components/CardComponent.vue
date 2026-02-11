@@ -4,18 +4,18 @@
     :class="{
       'ring-2 ring-western-gold scale-110 -translate-y-4': selected,
       'opacity-50 cursor-not-allowed': disabled,
-      'hover:-translate-y-5 hover:scale-110 hover:z-50': !disabled && playable,
+      'hover:-translate-y-5 hover:scale-110 hover:z-50': !disabled && playable && animateHover,
       'grayscale': !playable && !disabled
     }"
     @click="!disabled && $emit('click', card)"
   >
     <!-- Card Face -->
-    <div class="absolute inset-0 rounded-lg overflow-hidden">
+    <div class="absolute inset-0 rounded-lg overflow-hidden bg-gray-100">
       <!-- Card Image (full card) -->
-      <img 
-        :src="getCardImage()" 
+      <img
+        :src="getCardImage()"
         :alt="getCardName()"
-        class="w-full h-full object-cover"
+        class="w-full h-full object-contain"
         @error="onImageError"
       />
       
@@ -53,6 +53,14 @@ const props = defineProps({
     default: false
   },
   playable: {
+    type: Boolean,
+    default: true
+  },
+  animateHover: {
+    type: Boolean,
+    default: true
+  },
+  animateHover: {
     type: Boolean,
     default: true
   }

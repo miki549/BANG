@@ -60,6 +60,21 @@ public class GameController {
         log.debug("Player {} selected Kit Carlson cards in room {}", playerId, roomId);
     }
 
+    @MessageMapping("/game/luckyDukeSelect")
+    public void chooseLuckyDukeCard(@Payload GameMessage message, SimpMessageHeaderAccessor headerAccessor) {
+        String sessionId = headerAccessor.getSessionId();
+        String roomId = roomService.getRoomIdForSession(sessionId);
+        String playerId = roomService.getPlayerIdForSession(sessionId);
+
+        if (roomId == null || playerId == null) {
+            sendError(headerAccessor, "Not in a game");
+            return;
+        }
+
+        gameService.handleLuckyDukeChoice(roomId, playerId, message.getCardId());
+        log.debug("Player {} selected Lucky Duke card {} in room {}", playerId, message.getCardId(), roomId);
+    }
+
     @MessageMapping("/game/draw")
     public void drawCards(SimpMessageHeaderAccessor headerAccessor) {
         String sessionId = headerAccessor.getSessionId();

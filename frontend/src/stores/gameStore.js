@@ -173,6 +173,12 @@ export const useGameStore = defineStore('game', () => {
     })
   }
 
+  function chooseLuckyDukeCard(cardId) {
+    send('/app/game/luckyDukeSelect', {
+      cardId
+    })
+  }
+
   // Message handlers
   function handleLobbyMessage(message) {
     console.log('handleLobbyMessage:', message.type, message)
@@ -327,6 +333,7 @@ export const useGameStore = defineStore('game', () => {
     useAbility,
     pickGeneralStoreCard,
     selectKitCarlsonCards,
+    chooseLuckyDukeCard,
     handleLobbyMessage,
     handleGameMessage,
     handleGameEvent,
